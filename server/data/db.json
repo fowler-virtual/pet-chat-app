@@ -1,0 +1,55 @@
+{
+  "users": [
+    {
+      "id": "user-test-1",
+      "email": "test@example.com",
+      "plan": "free",
+      "authToken": "test-token-123",
+      "createdAt": "2026-03-09T12:27:07.801Z"
+    }
+  ],
+  "pets": [
+    {
+      "id": "pet-test-1",
+      "userId": "user-test-1",
+      "name": "むぎ",
+      "nickname": "むぎちゃん",
+      "species": "猫",
+      "gender": "女の子",
+      "personality": "甘えん坊",
+      "firstPerson": "むぎ",
+      "ownerCall": "ママ",
+      "tone": "ツンデレ",
+      "avatarUri": "",
+      "sessionKey": "pet:pet-test-1:main",
+      "createdAt": "2026-03-09T12:27:07.801Z"
+    }
+  ],
+  "conversations": [
+    {
+      "id": "conv-test-1",
+      "userId": "user-test-1",
+      "petId": "pet-test-1",
+      "sessionKey": "pet:pet-test-1:main",
+      "lastMessageAt": "2026-03-09T12:27:07.801Z"
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg-1",
+      "conversationId": "conv-test-1",
+      "role": "pet",
+      "content": "にゃー",
+      "model": "mock",
+      "createdAt": "2026-03-09T12:27:07.801Z"
+    },
+    {
+      "id": "msg-2",
+      "conversationId": "conv-test-1",
+      "role": "owner",
+      "content": "こんにちは",
+      "model": "human",
+      "createdAt": "2026-03-09T12:27:07.801Z"
+    }
+  ]
+}

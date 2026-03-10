@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "ペットとおはなし",
+    "slug": "pet-chat-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFF8F0"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yuta.petchatapp",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "ペットのアイコンに写真を使うために、写真ライブラリへのアクセスが必要です。",
+        "NSCameraUsageDescription": "ペットのアイコン用に写真を撮影するために、カメラへのアクセスが必要です。"
+      }
+    },
+    "android": {
+      "package": "com.yuta.petchatapp",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFF8F0"
+      },
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-image-picker"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "14cc6cff-7a87-4f5f-a471-1090b3e5faa3"
+      }
+    },
+    "owner": "fowler"
+  }
+}
