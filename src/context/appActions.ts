@@ -52,9 +52,9 @@ export interface AppActions {
 }
 
 const AD_REWARD_WEIGHTS: { type: ItemType; weight: number }[] = [
-  { type: 'snack', weight: 70 },
-  { type: 'meal', weight: 25 },
-  { type: 'feast', weight: 5 },
+  { type: 'snack', weight: 60 },
+  { type: 'meal', weight: 30 },
+  { type: 'feast', weight: 10 },
 ];
 
 const ITEM_LABEL: Record<ItemType, string> = { snack: 'おやつ', meal: 'ごはん', feast: 'ごちそう' };
