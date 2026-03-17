@@ -47,20 +47,20 @@ describe('createInitialState', () => {
 // ── Auth ──
 describe('Auth actions', () => {
   it('SET_SESSION updates session', () => {
-    const session = { authToken: 'tok', email: 'a@b.com', plan: 'free' as const };
+    const session = { authToken: 'tok', id: 'u1', plan: 'free' as const };
     const next = appReducer(makeState(), { type: 'SET_SESSION', session });
     expect(next.session).toEqual(session);
   });
 
   it('SET_SESSION can clear session', () => {
-    const state = makeState({ session: { authToken: 'tok', email: 'a@b.com', plan: 'free' } });
+    const state = makeState({ session: { authToken: 'tok', id: 'u1', plan: 'free' } });
     const next = appReducer(state, { type: 'SET_SESSION', session: null });
     expect(next.session).toBeNull();
   });
 
-  it('SET_EMAIL_INPUT updates emailInput', () => {
-    const next = appReducer(makeState(), { type: 'SET_EMAIL_INPUT', value: 'test@test.com' });
-    expect(next.emailInput).toBe('test@test.com');
+  it('SET_TRANSFER_CODE_INPUT updates transferCodeInput', () => {
+    const next = appReducer(makeState(), { type: 'SET_TRANSFER_CODE_INPUT', value: 'A3K9M2X7' });
+    expect(next.transferCodeInput).toBe('A3K9M2X7');
   });
 
   it('SET_IS_AUTHENTICATING updates flag', () => {
@@ -282,7 +282,7 @@ describe('Bulk actions', () => {
   });
 
   it('SIGN_IN_COMPLETE sets session, pets, and status', () => {
-    const session = { authToken: 'tok', email: 'a@b.com', plan: 'plus' as const };
+    const session = { authToken: 'tok', id: 'u1', plan: 'plus' as const };
     const next = appReducer(makeState({ isAuthenticating: true }), {
       type: 'SIGN_IN_COMPLETE',
       session,
@@ -293,7 +293,7 @@ describe('Bulk actions', () => {
     expect(next.session).toEqual(session);
     expect(next.pets).toHaveLength(1);
     expect(next.selectedPetId).toBe('pet-1');
-    expect(next.emailInput).toBe('a@b.com');
+    expect(next.transferCodeInput).toBe('');
     expect(next.apiStatus).toBe('online');
     expect(next.isAuthenticating).toBe(false);
   });

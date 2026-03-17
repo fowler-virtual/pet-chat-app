@@ -4,3 +4,13 @@ node_modules
 dist
 npm-debug.log*
 yarn-error.log*
+
+# Secrets
+.env
+.env.*
+*.key
+google-play-key.json
+
+# Server data (development)
+server/data/db.json
+server/data/uploads/

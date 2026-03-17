@@ -1,7 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
-const { createOrGetDemoUser, requireAuth, getUserByToken } = require('./auth');
+const { createAnonymousUser, issueTransferCode, redeemTransferCode, requireAuth, getUserByToken } = require('./auth');
 const { readDb, updateDb } = require('./db');
 const { generatePetReply } = require('./ai-router');
 const { uploadImage, deleteImage, UPLOAD_DIR } = require('./storage');
@@ -9,9 +12,33 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const IS_DEBUG = process.env.DEBUG === 'true';
 
-app.use(cors());
+// Security headers
+app.use(helmet());
+
+// CORS — 本番では許可オリジンを指定
+const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
+  : undefined; // undefined = 全オリジン許可（開発用）
+app.use(cors(ALLOWED_ORIGINS ? { origin: ALLOWED_ORIGINS } : undefined));
+
 app.use(express.json({ limit: '5mb' }));
+if (IS_DEBUG) {
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.path}`);
+    next();
+  });
+}
+
+// Rate limiting for public endpoints
+const publicLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_requests' },
+});
 // ローカル開発用: アップロード画像の静的配信
 app.use('/uploads', express.static(UPLOAD_DIR));
 
@@ -85,12 +112,25 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/auth/demo-login', (req, res) => {
-  const user = createOrGetDemoUser(req.body?.email);
-  if (!user) {
-    return res.status(400).json({ error: 'invalid_email' });
-  }
+app.post('/api/auth/register', publicLimiter, (req, res) => {
+  const user = createAnonymousUser();
+  return res.json({ session: user });
+});
 
+app.post('/api/auth/issue-transfer-code', requireAuth, (req, res) => {
+  const result = issueTransferCode(req.user.id);
+  if (!result) {
+    return res.status(404).json({ error: 'user_not_found' });
+  }
+  return res.json(result);
+});
+
+app.post('/api/auth/redeem-transfer-code', (req, res) => {
+  const { code } = req.body ?? {};
+  const user = redeemTransferCode(code);
+  if (!user) {
+    return res.status(400).json({ error: 'invalid_or_expired_code' });
+  }
   return res.json({ session: user });
 });
 
@@ -243,6 +283,29 @@ function countTodayMessages(db, userId) {
   ).length;
 }
 
+// 未ログインでもAI返答を取得できるエンドポイント
+app.post('/api/chat/reply-guest', publicLimiter, async (req, res) => {
+  const { pet, message, plan } = req.body ?? {};
+  if (!pet?.id || !pet?.sessionKey || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'invalid_chat_payload' });
+  }
+
+  const conversationHistory = Array.isArray(req.body.conversationHistory) ? req.body.conversationHistory : [];
+
+  const reply = await generatePetReply({
+    pet,
+    message: message.trim(),
+    plan: plan || 'free',
+    conversationHistory,
+  });
+
+  return res.json({
+    provider: reply.provider,
+    text: reply.text,
+    sessionKey: pet.sessionKey,
+  });
+});
+
 app.post('/api/chat/reply', requireAuth, async (req, res) => {
   const { pet, message, plan } = req.body ?? {};
   if (!pet?.id || !pet?.sessionKey || typeof message !== 'string' || !message.trim()) {
@@ -265,9 +328,28 @@ app.post('/api/chat/reply', requireAuth, async (req, res) => {
     });
   }
 
-  const storedPet = db.pets.find((item) => item.userId === req.user.id && item.id === pet.id);
+  let storedPet = db.pets.find((item) => item.userId === req.user.id && item.id === pet.id);
   if (!storedPet) {
-    return res.status(404).json({ error: 'pet_not_found' });
+    // ペットが未登録なら、リクエストのデータから自動作成
+    if (!pet.name || !pet.species || !pet.personality) {
+      return res.status(400).json({ error: 'pet_data_required_for_auto_create' });
+    }
+    storedPet = {
+      id: pet.id,
+      userId: req.user.id,
+      name: pet.name,
+      nickname: pet.nickname || pet.name,
+      species: pet.species,
+      gender: pet.gender || '不明',
+      personality: pet.personality,
+      firstPerson: pet.firstPerson || pet.name,
+      ownerCall: pet.ownerCall || '飼い主さん',
+      tone: pet.tone || 'ため口',
+      avatarUri: pet.avatarUri || '',
+      sessionKey: pet.sessionKey,
+      createdAt: new Date().toISOString(),
+    };
+    updateDb((nextDb) => { nextDb.pets.push(storedPet); return nextDb; });
   }
 
   const conversation = db.conversations.find(
@@ -372,13 +454,16 @@ app.post('/api/sync/upload', requireAuth, (req, res) => {
       db.pets.push(serverPet);
       const conversation = ensureConversation(db, userId, serverPet.id, serverPet.sessionKey);
 
-      // Upload messages for this pet
+      // Upload messages for this pet (skip duplicates by id)
       const localMessages = messagesByPetId?.[pet.id];
       if (Array.isArray(localMessages)) {
+        const existingIds = new Set(db.messages.filter((m) => m.conversationId === conversation.id).map((m) => m.id));
         for (const msg of localMessages) {
           if (!msg.text || !msg.sender) continue;
+          const msgId = msg.id || `msg-${crypto.randomUUID()}`;
+          if (existingIds.has(msgId)) continue;
           db.messages.push({
-            id: msg.id || `msg-${crypto.randomUUID()}`,
+            id: msgId,
             conversationId: conversation.id,
             role: msg.sender,
             content: msg.text,
@@ -414,7 +499,6 @@ app.post('/api/billing/subscribe', requireAuth, (req, res) => {
     user.plan = plan;
     updatedUser = {
       id: user.id,
-      email: user.email,
       plan: user.plan,
       authToken: user.authToken,
     };
@@ -430,6 +514,59 @@ app.post('/api/billing/subscribe', requireAuth, (req, res) => {
   });
 });
 
+/**
+ * レシート検証エンドポイント
+ *
+ * 本番環境では Apple / Google のサーバーにレシートを送って検証する。
+ * 開発環境では receipt が存在すれば有効とみなす（mock）。
+ *
+ * 本番化する際の手順:
+ * 1. Apple: App Store Server API でレシートを検証
+ * 2. Google: Google Play Developer API で purchaseToken を検証
+ * 3. 検証結果に応じて plan を更新
+ */
+app.post('/api/billing/verify-receipt', requireAuth, (req, res) => {
+  const { productId, receipt, platform } = req.body ?? {};
+  if (!productId || !receipt) {
+    return res.status(400).json({ error: 'invalid_receipt_payload' });
+  }
+
+  // TODO: 本番では Apple / Google のサーバーにレシートを検証
+  // 開発環境では receipt が存在すれば有効とみなす
+  const isValid = Boolean(receipt);
+
+  if (!isValid) {
+    return res.status(400).json({ error: 'receipt_invalid' });
+  }
+
+  const plan = productId === 'plus_monthly' ? 'plus' : 'free';
+  let updatedUser = null;
+
+  updateDb((db) => {
+    const user = db.users.find((item) => item.id === req.user.id);
+    if (!user) return db;
+
+    user.plan = plan;
+    user.receiptData = { productId, platform: platform || 'unknown', verifiedAt: new Date().toISOString() };
+    updatedUser = {
+      id: user.id,
+      plan: user.plan,
+      authToken: user.authToken,
+    };
+    return db;
+  });
+
+  if (!updatedUser) {
+    return res.status(404).json({ error: 'user_not_found' });
+  }
+
+  return res.json({
+    session: updatedUser,
+    verified: true,
+    plan,
+  });
+});
+
 app.listen(PORT, () => {
-  console.log(`Pet Chat API listening on http://localhost:${PORT}`);
+  if (IS_DEBUG) console.log(`Pet Chat API listening on http://localhost:${PORT}`);
 });

@@ -3,16 +3,14 @@ import { createMockReply } from './petPersona';
 import type { ChatRequest, ChatResponse } from '../types';
 
 export async function sendPetChatMessage(request: ChatRequest, authToken?: string): Promise<ChatResponse> {
-  if (authToken) {
-    try {
-      return await fetchChatReply(request, authToken);
-    } catch (error) {
-      // Re-throw limit errors so the UI can show upgrade prompts
-      if (error instanceof ApiError && (error.status === 429 || error.status === 403)) {
-        throw error;
-      }
-      // Fall through to local mock reply when the server is offline.
+  try {
+    return await fetchChatReply(request, authToken);
+  } catch (error) {
+    // Re-throw limit errors so the UI can show upgrade prompts
+    if (error instanceof ApiError && (error.status === 429 || error.status === 403)) {
+      throw error;
     }
+    // Fall through to local mock reply when the server is offline.
   }
 
   return {

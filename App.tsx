@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -12,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { palette, shadow } from './src/theme';
+import { useThemePalette, shadow } from './src/theme';
 import { AppProvider, useAppContext } from './src/context/AppContext';
 import LimitModal from './src/components/LimitModal';
 import UseItemConfirmModal from './src/components/UseItemConfirmModal';
@@ -33,9 +34,65 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function App() {
+  const palette = useThemePalette();
   const insets = useSafeAreaInsets();
-  const { state, dispatch, actions, totalUnreadCount } = useAppContext();
+  const { state, dispatch, actions, totalUnreadCount, remainingMessages } = useAppContext();
   const { pets, isHydrating, inventory, showLimitModal, farewellTarget, farewellStep, useItemConfirm, messageActionState } = state;
+
+  const styles = useMemo(() => StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: palette.canvas,
+      alignItems: 'center',
+    },
+    appViewport: {
+      flex: 1,
+      width: '100%',
+      maxWidth: Platform.OS === 'web' ? 430 : '100%',
+      alignSelf: 'center',
+      backgroundColor: palette.canvas,
+    },
+    loadingState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      paddingHorizontal: 24,
+    },
+    loadingText: {
+      color: palette.text,
+      fontSize: 14,
+    },
+    tabBar: {
+      backgroundColor: palette.surfaceAlpha,
+      borderTopWidth: 0,
+      paddingTop: 6,
+      position: 'absolute',
+      left: 8,
+      right: 8,
+      bottom: 8,
+      borderRadius: 20,
+      ...shadow.lg,
+    },
+    tabItem: {
+      borderRadius: 14,
+      paddingHorizontal: 0,
+    },
+    tabIconWrap: {
+      marginTop: 0,
+    },
+    tabLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    tabBadge: {
+      backgroundColor: palette.accent,
+      color: '#FFFFFF',
+      fontSize: 10,
+      fontWeight: '700',
+    },
+  }), [palette]);
 
   if (isHydrating) {
     return (
@@ -69,7 +126,12 @@ function App() {
           <LimitModal
             visible={showLimitModal}
             inventory={inventory}
+            plan={state.session?.plan ?? 'free'}
+            adReward={state.adReward}
+            isAdLoading={state.isAdLoading}
+            remainingMessages={remainingMessages}
             onUseItem={actions.handleUseItem}
+            onAdReward={() => void actions.handleAdReward()}
             onClose={() => dispatch({ type: 'SET_SHOW_LIMIT_MODAL', value: false })}
           />
           <UseItemConfirmModal
@@ -109,7 +171,7 @@ function App() {
               headerStyle: { backgroundColor: palette.canvas },
               headerTintColor: palette.ink,
               headerShadowVisible: false,
-              contentStyle: { backgroundColor: palette.canvas },
+              contentStyle: { backgroundColor: 'transparent' },
             }}
           >
             <Stack.Screen name="MainTabs" options={{ headerShown: false }}>
@@ -120,7 +182,9 @@ function App() {
                   })}
                   screenOptions={{
                     headerShown: false,
-                    tabBarStyle: [styles.tabBar, { height: 68 + insets.bottom, paddingBottom: 8 + insets.bottom }],
+                    tabBarStyle: pets.length === 0
+                      ? { display: 'none' }
+                      : [styles.tabBar, { height: 68 + insets.bottom, paddingBottom: 8 + insets.bottom }],
                     tabBarActiveTintColor: palette.accent,
                     tabBarInactiveTintColor: palette.muted,
                     tabBarShowLabel: true,
@@ -181,60 +245,5 @@ function AppRoot() {
     </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: palette.canvas,
-    alignItems: 'center',
-  },
-  appViewport: {
-    flex: 1,
-    width: '100%',
-    maxWidth: Platform.OS === 'web' ? 430 : '100%',
-    alignSelf: 'center',
-    backgroundColor: palette.canvas,
-  },
-  loadingState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-  },
-  loadingText: {
-    color: palette.text,
-    fontSize: 14,
-  },
-  tabBar: {
-    backgroundColor: palette.surface,
-    borderTopWidth: 0,
-    paddingTop: 6,
-    position: 'absolute',
-    left: 8,
-    right: 8,
-    bottom: 8,
-    borderRadius: 20,
-    ...shadow.lg,
-  },
-  tabItem: {
-    borderRadius: 14,
-    paddingHorizontal: 0,
-  },
-  tabIconWrap: {
-    marginTop: 0,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  tabBadge: {
-    backgroundColor: palette.accent,
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-});
 
 export default AppRoot;

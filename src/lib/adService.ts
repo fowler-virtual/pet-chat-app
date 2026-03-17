@@ -16,7 +16,7 @@
  * 5. EAS Build でビルド（Expo Go では AdMob は動作しません）
  */
 
-const USE_REAL_ADS = false;
+const USE_REAL_ADS = process.env.EXPO_PUBLIC_ADMOB_ENABLED === 'true';
 
 const REWARDED_AD_UNIT_ID = process.env.EXPO_PUBLIC_ADMOB_REWARDED_ID ?? 'ca-app-pub-3940256099942544/5224354917'; // テスト用ID
 
@@ -39,16 +39,29 @@ async function mockRewardedAd(): Promise<AdResult> {
   return { success: true };
 }
 
+const AD_LOAD_TIMEOUT_MS = 15_000;
+
 async function realRewardedAd(): Promise<AdResult> {
   try {
-    // react-native-google-mobile-ads を動的 import
-    // パッケージ未インストール時はエラーになるため try-catch で保護
     const { RewardedAd, RewardedAdEventType, AdEventType } = await import('react-native-google-mobile-ads');
 
     return new Promise<AdResult>((resolve) => {
       const rewarded = RewardedAd.createForAdRequest(REWARDED_AD_UNIT_ID);
 
       let earned = false;
+      let settled = false;
+
+      function settle(result: AdResult) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        cleanup();
+        resolve(result);
+      }
+
+      const timer = setTimeout(() => {
+        settle({ success: false, reason: 'ad_timeout' });
+      }, AD_LOAD_TIMEOUT_MS);
 
       const unsubLoaded = rewarded.addAdEventListener(RewardedAdEventType.LOADED, () => {
         rewarded.show();
@@ -59,13 +72,11 @@ async function realRewardedAd(): Promise<AdResult> {
       });
 
       const unsubClosed = rewarded.addAdEventListener(AdEventType.CLOSED, () => {
-        cleanup();
-        resolve(earned ? { success: true } : { success: false, reason: 'not_completed' });
+        settle(earned ? { success: true } : { success: false, reason: 'not_completed' });
       });
 
       const unsubError = rewarded.addAdEventListener(AdEventType.ERROR, (error: { message?: string }) => {
-        cleanup();
-        resolve({ success: false, reason: error?.message ?? 'ad_error' });
+        settle({ success: false, reason: error?.message ?? 'ad_error' });
       });
 
       function cleanup() {
@@ -78,7 +89,6 @@ async function realRewardedAd(): Promise<AdResult> {
       rewarded.load();
     });
   } catch {
-    // パッケージ未インストールまたはロード失敗
     return { success: false, reason: 'ad_sdk_unavailable' };
   }
 }

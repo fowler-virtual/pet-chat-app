@@ -1,10 +1,22 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { PetProfile } from '../types';
-import { palette } from '../theme';
+import { useThemePalette } from '../theme';
 
 export default React.memo(function PetAvatar({ pet, size = 56 }: { pet: PetProfile; size?: number }) {
+  const palette = useThemePalette();
+  const styles = useMemo(() => StyleSheet.create({
+    avatar: {
+      backgroundColor: palette.chip,
+    },
+    avatarFallback: {
+      backgroundColor: palette.secondarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  }), [palette]);
+
   if (pet.avatarUri?.startsWith('icon:')) {
     const iconName = pet.avatarUri.slice(5);
     return (
@@ -25,13 +37,3 @@ export default React.memo(function PetAvatar({ pet, size = 56 }: { pet: PetProfi
   );
 });
 
-const styles = StyleSheet.create({
-  avatar: {
-    backgroundColor: palette.chip,
-  },
-  avatarFallback: {
-    backgroundColor: palette.secondarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

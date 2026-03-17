@@ -51,10 +51,18 @@ export async function fetchPersonaPreview(pet: PetProfile): Promise<PersonaPrevi
   });
 }
 
-export async function signInDemo(email: string): Promise<{ session: UserSession }> {
-  return requestJson('/api/auth/demo-login', {
+export async function registerAnonymous(): Promise<{ session: UserSession }> {
+  return requestJson('/api/auth/register', { method: 'POST' });
+}
+
+export async function apiIssueTransferCode(authToken: string): Promise<{ transferCode: string; expiresAt: string }> {
+  return requestJson('/api/auth/issue-transfer-code', { method: 'POST' }, authToken);
+}
+
+export async function apiRedeemTransferCode(code: string): Promise<{ session: UserSession }> {
+  return requestJson('/api/auth/redeem-transfer-code', {
     method: 'POST',
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ code }),
   });
 }
 
@@ -86,11 +94,17 @@ export async function deletePet(petId: string, authToken: string): Promise<{ ok:
   }, authToken);
 }
 
-export async function fetchChatReply(payload: ChatRequest, authToken: string): Promise<ChatResponse> {
-  return requestJson('/api/chat/reply', {
+export async function fetchChatReply(payload: ChatRequest, authToken?: string): Promise<ChatResponse> {
+  if (authToken) {
+    return requestJson('/api/chat/reply', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, authToken);
+  }
+  return requestJson('/api/chat/reply-guest', {
     method: 'POST',
     body: JSON.stringify(payload),
-  }, authToken);
+  });
 }
 
 export async function uploadAvatar(base64Image: string, mimeType: string, authToken: string): Promise<{ url: string }> {
@@ -114,5 +128,17 @@ export async function subscribePlan(plan: SubscriptionPlan, authToken: string): 
   return requestJson('/api/billing/subscribe', {
     method: 'POST',
     body: JSON.stringify({ plan }),
+  }, authToken);
+}
+
+export async function verifyReceipt(
+  productId: string,
+  receipt: string,
+  platform: string,
+  authToken: string,
+): Promise<{ session: UserSession; verified: boolean; plan: SubscriptionPlan }> {
+  return requestJson('/api/billing/verify-receipt', {
+    method: 'POST',
+    body: JSON.stringify({ productId, receipt, platform }),
   }, authToken);
 }

@@ -32,7 +32,7 @@ export const ITEM_PRICES: Record<ItemType, string> = {
 };
 
 export type PurchaseResult =
-  | { success: true; productId: string }
+  | { success: true; productId: string; receipt: string }
   | { success: false; reason: string };
 
 /**
@@ -75,18 +75,23 @@ export async function purchaseItem(itemType: ItemType): Promise<PurchaseResult> 
 /**
  * サブスクリプションの有効状態を確認
  */
-export async function checkSubscriptionStatus(): Promise<{ active: boolean; plan: SubscriptionPlan }> {
+export async function checkSubscriptionStatus(): Promise<{ active: boolean; plan: SubscriptionPlan; receipt?: string }> {
   if (!USE_REAL_IAP) {
     return { active: false, plan: 'free' };
   }
 
   try {
     const IAP = await import('expo-in-app-purchases');
-    const { results } = await IAP.getPurchaseHistoryAsync();
+    const history = await IAP.getPurchaseHistoryAsync();
+    const results = (history as any).results as Array<{ productId: string; acknowledged: boolean; transactionReceipt?: string }> | undefined;
     const plusPurchase = results?.find(
-      (p: { productId: string; acknowledged: boolean }) => p.productId === PRODUCT_IDS.plus_monthly && p.acknowledged,
+      (p) => p.productId === PRODUCT_IDS.plus_monthly && p.acknowledged,
     );
-    return { active: Boolean(plusPurchase), plan: plusPurchase ? 'plus' : 'free' };
+    return {
+      active: Boolean(plusPurchase),
+      plan: plusPurchase ? 'plus' : 'free',
+      receipt: plusPurchase?.transactionReceipt,
+    };
   } catch {
     return { active: false, plan: 'free' };
   }
@@ -94,17 +99,20 @@ export async function checkSubscriptionStatus(): Promise<{ active: boolean; plan
 
 async function mockPurchase(productId: string): Promise<PurchaseResult> {
   await new Promise<void>((resolve) => setTimeout(resolve, 300));
-  return { success: true, productId };
+  return { success: true, productId, receipt: 'mock-receipt' };
 }
 
 async function realPurchase(productId: string): Promise<PurchaseResult> {
   try {
     const IAP = await import('expo-in-app-purchases');
     await IAP.getProductsAsync([productId]);
-    const { responseCode } = await IAP.purchaseItemAsync(productId);
+    const purchaseResult = await IAP.purchaseItemAsync(productId);
+    const responseCode = (purchaseResult as any).responseCode as number;
+    const results = (purchaseResult as any).results as Array<{ transactionReceipt?: string }> | undefined;
 
     if (responseCode === IAP.IAPResponseCode.OK) {
-      return { success: true, productId };
+      const receipt = results?.[0]?.transactionReceipt ?? '';
+      return { success: true, productId, receipt };
     }
     if (responseCode === IAP.IAPResponseCode.USER_CANCELED) {
       return { success: false, reason: 'cancelled' };

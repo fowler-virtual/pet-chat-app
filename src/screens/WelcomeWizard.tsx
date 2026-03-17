@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppContext } from '../context/AppContext';
-import { palette } from '../theme';
+import { useThemePalette } from '../theme';
 import type { PetProfile } from '../types';
 import { genderOptions, SPECIES_OPTIONS, OWNER_CALL_OPTIONS, FIRST_PERSON_OPTIONS, TONE_OPTIONS, AVATAR_ICONS } from '../data/constants';
 
 export default function WelcomeWizard() {
-  const { dispatch, actions } = useAppContext();
+  const palette = useThemePalette();
+  const { state, dispatch, actions } = useAppContext();
+  const { transferCodeInput, isAuthenticating } = state;
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -24,11 +26,13 @@ export default function WelcomeWizard() {
   const [tone, setTone] = useState('');
   const [avatarUri, setAvatarUri] = useState('');
   const [avatarIcon, setAvatarIcon] = useState('');
+  const [toneCustom, setToneCustom] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
   const resolvedSpecies = species === 'その他' ? speciesCustom.trim() : species;
   const displayName = name.trim() || 'ペット';
   const resolvedFirstPerson = firstPerson === 'その他' ? firstPersonCustom.trim() : firstPerson;
+  const resolvedTone = tone === 'その他' ? toneCustom.trim() : tone;
   const [ownerCallCustom, setOwnerCallCustom] = useState('');
   const resolvedOwnerCall = ownerCall === 'その他' ? ownerCallCustom.trim() : ownerCall;
 
@@ -55,7 +59,7 @@ export default function WelcomeWizard() {
     },
     {
       question: `${displayName}を普段なんて呼んでいますか？`,
-      hint: 'お名前と同じならそのまま「つぎへ」を押してください',
+      hint: 'お名前と同じならそのまま「つぎへ」を押してください\n複数ある場合は「、」や「/」で区切ってください',
       placeholder: `例: むーちゃん、こっちゃん`,
       canNext: true,
     },
@@ -87,7 +91,7 @@ export default function WelcomeWizard() {
     },
     {
       question: `${displayName}はどんな話し方をしますか？`,
-      canNext: tone.length > 0,
+      canNext: resolvedTone.length > 0,
     },
   ];
 
@@ -106,7 +110,7 @@ export default function WelcomeWizard() {
       personality: personality.trim(),
       firstPerson: resolvedFirstPerson || trimmedName,
       ownerCall: resolvedOwnerCall || '飼い主さん',
-      tone,
+      tone: resolvedTone,
       avatarUri: avatarUri || (avatarIcon ? `icon:${avatarIcon}` : ''),
       sessionKey: `pet:${id}:main`,
     };
@@ -118,8 +122,219 @@ export default function WelcomeWizard() {
   }
 
   const [started, setStarted] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+
+  const styles = useMemo(() => StyleSheet.create({
+    welcomeScreen: {
+      flex: 1,
+      justifyContent: 'space-between',
+      paddingHorizontal: 32,
+      paddingTop: 80,
+      paddingBottom: 48,
+    },
+    welcomeContent: {
+      alignItems: 'center',
+      gap: 16,
+    },
+    welcomeTitle: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: palette.ink,
+      marginTop: 8,
+    },
+    welcomeSubtitle: {
+      fontSize: 15,
+      color: palette.text,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+    welcomeActions: {
+      gap: 12,
+      alignItems: 'stretch',
+    },
+    welcomeLoginLink: {
+      paddingVertical: 8,
+      alignSelf: 'flex-end',
+    },
+    welcomeLoginText: {
+      fontSize: 14,
+      color: palette.muted,
+      textDecorationLine: 'underline',
+    },
+    wizardProgress: {
+      alignItems: 'center',
+      paddingTop: 12,
+    },
+    wizardStep: {
+      fontSize: 13,
+      color: palette.muted,
+      fontWeight: '600',
+    },
+    wizardBody: {
+      flex: 1,
+      justifyContent: 'center',
+      gap: 20,
+    },
+    wizardQuestion: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: palette.ink,
+      textAlign: 'center',
+      lineHeight: 30,
+    },
+    wizardHint: {
+      fontSize: 13,
+      color: palette.muted,
+      textAlign: 'center',
+      marginTop: -8,
+    },
+    wizardInput: {
+      backgroundColor: palette.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: palette.border,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      fontSize: 16,
+      color: palette.ink,
+    },
+    textArea: {
+      minHeight: 96,
+      textAlignVertical: 'top',
+    },
+    wizardChips: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    wizardChip: {
+      backgroundColor: palette.chip,
+      borderRadius: 20,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    wizardChipActive: {
+      backgroundColor: palette.accentSoft,
+      borderColor: palette.accent,
+    },
+    wizardChipText: {
+      fontSize: 15,
+      color: palette.text,
+      fontWeight: '500',
+    },
+    wizardChipTextActive: {
+      color: palette.accent,
+      fontWeight: '700',
+    },
+    wizardAvatarSection: {
+      alignItems: 'center',
+      gap: 16,
+    },
+    wizardAvatarPreview: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      backgroundColor: palette.chip,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    wizardAvatarImage: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+    },
+    wizardIconChip: {
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: palette.chip,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    wizardIconChipLabel: {
+      fontSize: 11,
+      color: palette.text,
+    },
+    primaryButton: {
+      backgroundColor: palette.accent,
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    primaryButtonText: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    secondaryButton: {
+      flexDirection: 'row',
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.accentSoft,
+    },
+    secondaryButtonText: {
+      color: palette.accent,
+      fontWeight: '600',
+    },
+    disabledButton: {
+      opacity: 0.4,
+    },
+  }), [palette]);
 
   if (!started) {
+    if (showLogin) {
+      return (
+        <View style={[styles.welcomeScreen, { paddingBottom: 32 + insets.bottom }]}>
+          <View style={styles.welcomeContent}>
+            <MaterialCommunityIcons name="paw" size={64} color={palette.accent} />
+            <Text style={styles.welcomeTitle}>データの引き継ぎ</Text>
+            <Text style={styles.welcomeSubtitle}>
+              引き継ぎコードを入力して{'\n'}データを復元できます
+            </Text>
+          </View>
+          <View style={styles.welcomeActions}>
+            <TextInput
+              style={[styles.wizardInput, { letterSpacing: 2, textAlign: 'center' }]}
+              placeholder="例: A3K9M2X7"
+              placeholderTextColor={palette.muted}
+              value={transferCodeInput}
+              onChangeText={(value) => dispatch({ type: 'SET_TRANSFER_CODE_INPUT', value: value.toUpperCase() })}
+              autoCapitalize="characters"
+              maxLength={8}
+              autoFocus
+            />
+            <Pressable
+              style={[styles.primaryButton, (isAuthenticating || !transferCodeInput.trim()) && styles.disabledButton]}
+              onPress={() => {
+                Alert.alert(
+                  'データの引き継ぎ',
+                  'この端末のデータは上書きされます。よろしいですか？',
+                  [
+                    { text: 'キャンセル', style: 'cancel' },
+                    { text: '引き継ぐ', style: 'destructive', onPress: () => void actions.handleRedeemTransferCode() },
+                  ],
+                );
+              }}
+              disabled={isAuthenticating || !transferCodeInput.trim()}
+            >
+              <Text style={styles.primaryButtonText}>{isAuthenticating ? '引き継ぎ中…' : 'データを引き継ぐ'}</Text>
+            </Pressable>
+            <Pressable style={styles.welcomeLoginLink} onPress={() => setShowLogin(false)}>
+              <Text style={styles.welcomeLoginText}>もどる</Text>
+            </Pressable>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={[styles.welcomeScreen, { paddingBottom: 32 + insets.bottom }]}>
         <View style={styles.welcomeContent}>
@@ -131,10 +346,10 @@ export default function WelcomeWizard() {
         </View>
         <View style={styles.welcomeActions}>
           <Pressable style={styles.primaryButton} onPress={() => setStarted(true)}>
-            <Text style={styles.primaryButtonText}>ペットを登録する</Text>
+            <Text style={styles.primaryButtonText}>おむかえする</Text>
           </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={() => dispatch({ type: 'SET_SHOW_WELCOME', value: false })}>
-            <Text style={styles.secondaryButtonText}>アカウントをお持ちの方はログイン</Text>
+          <Pressable style={styles.welcomeLoginLink} onPress={() => setShowLogin(true)}>
+            <Text style={styles.welcomeLoginText}>引き継ぎコードをお持ちの方はこちら</Text>
           </Pressable>
         </View>
       </View>
@@ -142,7 +357,10 @@ export default function WelcomeWizard() {
   }
 
   return (
-    <View style={[styles.welcomeScreen, { paddingBottom: 32 + insets.bottom }]}>
+    <KeyboardAvoidingView
+      style={[styles.welcomeScreen, { paddingBottom: 32 + insets.bottom }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <View style={styles.wizardProgress}>
         <Text style={styles.wizardStep}>{step + 1} / {steps.length}</Text>
       </View>
@@ -204,16 +422,18 @@ export default function WelcomeWizard() {
         )}
 
         {step === 3 && (
-          <View style={styles.wizardChips}>
-            {SPECIES_OPTIONS.map((s) => (
-              <Pressable
-                key={s}
-                style={[styles.wizardChip, species === s && styles.wizardChipActive]}
-                onPress={() => setSpecies(s)}
-              >
-                <Text style={[styles.wizardChipText, species === s && styles.wizardChipTextActive]}>{s}</Text>
-              </Pressable>
-            ))}
+          <>
+            <View style={styles.wizardChips}>
+              {SPECIES_OPTIONS.map((s) => (
+                <Pressable
+                  key={s}
+                  style={[styles.wizardChip, species === s && styles.wizardChipActive]}
+                  onPress={() => setSpecies(s)}
+                >
+                  <Text style={[styles.wizardChipText, species === s && styles.wizardChipTextActive]}>{s}</Text>
+                </Pressable>
+              ))}
+            </View>
             {species === 'その他' && (
               <TextInput
                 style={styles.wizardInput}
@@ -224,7 +444,7 @@ export default function WelcomeWizard() {
                 autoFocus
               />
             )}
-          </View>
+          </>
         )}
 
         {step === 4 && (
@@ -254,16 +474,18 @@ export default function WelcomeWizard() {
         )}
 
         {step === 6 && (
-          <View style={styles.wizardChips}>
-            {[...FIRST_PERSON_OPTIONS, 'その他'].map((fp) => (
-              <Pressable
-                key={fp}
-                style={[styles.wizardChip, firstPerson === fp && styles.wizardChipActive]}
-                onPress={() => setFirstPerson(fp)}
-              >
-                <Text style={[styles.wizardChipText, firstPerson === fp && styles.wizardChipTextActive]}>{fp}</Text>
-              </Pressable>
-            ))}
+          <>
+            <View style={styles.wizardChips}>
+              {[...FIRST_PERSON_OPTIONS, 'その他'].map((fp) => (
+                <Pressable
+                  key={fp}
+                  style={[styles.wizardChip, firstPerson === fp && styles.wizardChipActive]}
+                  onPress={() => setFirstPerson(fp)}
+                >
+                  <Text style={[styles.wizardChipText, firstPerson === fp && styles.wizardChipTextActive]}>{fp}</Text>
+                </Pressable>
+              ))}
+            </View>
             {firstPerson === 'その他' && (
               <TextInput
                 style={styles.wizardInput}
@@ -274,20 +496,22 @@ export default function WelcomeWizard() {
                 autoFocus
               />
             )}
-          </View>
+          </>
         )}
 
         {step === 7 && (
-          <View style={styles.wizardChips}>
-            {[...OWNER_CALL_OPTIONS, 'その他'].map((o) => (
-              <Pressable
-                key={o}
-                style={[styles.wizardChip, ownerCall === o && styles.wizardChipActive]}
-                onPress={() => setOwnerCall(o)}
-              >
-                <Text style={[styles.wizardChipText, ownerCall === o && styles.wizardChipTextActive]}>{o}</Text>
-              </Pressable>
-            ))}
+          <>
+            <View style={styles.wizardChips}>
+              {[...OWNER_CALL_OPTIONS, 'その他'].map((o) => (
+                <Pressable
+                  key={o}
+                  style={[styles.wizardChip, ownerCall === o && styles.wizardChipActive]}
+                  onPress={() => setOwnerCall(o)}
+                >
+                  <Text style={[styles.wizardChipText, ownerCall === o && styles.wizardChipTextActive]}>{o}</Text>
+                </Pressable>
+              ))}
+            </View>
             {ownerCall === 'その他' && (
               <TextInput
                 style={styles.wizardInput}
@@ -298,21 +522,33 @@ export default function WelcomeWizard() {
                 autoFocus
               />
             )}
-          </View>
+          </>
         )}
 
         {step === 8 && (
-          <View style={styles.wizardChips}>
-            {TONE_OPTIONS.map((t) => (
-              <Pressable
-                key={t}
-                style={[styles.wizardChip, tone === t && styles.wizardChipActive]}
-                onPress={() => setTone(t)}
-              >
-                <Text style={[styles.wizardChipText, tone === t && styles.wizardChipTextActive]}>{t}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <>
+            <View style={styles.wizardChips}>
+              {[...TONE_OPTIONS, 'その他'].map((t) => (
+                <Pressable
+                  key={t}
+                  style={[styles.wizardChip, tone === t && styles.wizardChipActive]}
+                  onPress={() => setTone(t)}
+                >
+                  <Text style={[styles.wizardChipText, tone === t && styles.wizardChipTextActive]}>{t}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {tone === 'その他' && (
+              <TextInput
+                style={styles.wizardInput}
+                value={toneCustom}
+                onChangeText={setToneCustom}
+                placeholder="例: おっとり、元気いっぱい"
+                placeholderTextColor={palette.muted}
+                autoFocus
+              />
+            )}
+          </>
         )}
       </View>
 
@@ -331,7 +567,7 @@ export default function WelcomeWizard() {
             onPress={() => void handleComplete()}
             disabled={!current?.canNext || isCreating}
           >
-            <Text style={styles.primaryButtonText}>{isCreating ? '登録中…' : `${displayName}を登録する`}</Text>
+            <Text style={styles.primaryButtonText}>{isCreating ? 'おむかえ中…' : `${displayName}をおむかえする`}</Text>
           </Pressable>
         )}
 
@@ -345,170 +581,7 @@ export default function WelcomeWizard() {
           </Pressable>
         )}
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  welcomeScreen: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 32,
-    paddingTop: 80,
-    paddingBottom: 48,
-  },
-  welcomeContent: {
-    alignItems: 'center',
-    gap: 16,
-  },
-  welcomeTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: palette.ink,
-    marginTop: 8,
-  },
-  welcomeSubtitle: {
-    fontSize: 15,
-    color: palette.text,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  welcomeActions: {
-    gap: 12,
-    alignItems: 'stretch',
-  },
-  welcomeLoginLink: {
-    paddingVertical: 8,
-  },
-  welcomeLoginText: {
-    fontSize: 14,
-    color: palette.muted,
-    textDecorationLine: 'underline',
-  },
-  wizardProgress: {
-    alignItems: 'center',
-    paddingTop: 12,
-  },
-  wizardStep: {
-    fontSize: 13,
-    color: palette.muted,
-    fontWeight: '600',
-  },
-  wizardBody: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 20,
-  },
-  wizardQuestion: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: palette.ink,
-    textAlign: 'center',
-    lineHeight: 30,
-  },
-  wizardHint: {
-    fontSize: 13,
-    color: palette.muted,
-    textAlign: 'center',
-    marginTop: -8,
-  },
-  wizardInput: {
-    backgroundColor: palette.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: palette.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: palette.ink,
-  },
-  textArea: {
-    minHeight: 96,
-    textAlignVertical: 'top',
-  },
-  wizardChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  wizardChip: {
-    backgroundColor: palette.chip,
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  wizardChipActive: {
-    backgroundColor: palette.accentSoft,
-    borderColor: palette.accent,
-  },
-  wizardChipText: {
-    fontSize: 15,
-    color: palette.text,
-    fontWeight: '500',
-  },
-  wizardChipTextActive: {
-    color: palette.accent,
-    fontWeight: '700',
-  },
-  wizardAvatarSection: {
-    alignItems: 'center',
-    gap: 16,
-  },
-  wizardAvatarPreview: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: palette.chip,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  wizardAvatarImage: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-  },
-  wizardIconChip: {
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: palette.chip,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  wizardIconChipLabel: {
-    fontSize: 11,
-    color: palette.text,
-  },
-  primaryButton: {
-    backgroundColor: palette.accent,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  secondaryButton: {
-    flexDirection: 'row',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.accentSoft,
-  },
-  secondaryButtonText: {
-    color: palette.accent,
-    fontWeight: '600',
-  },
-  disabledButton: {
-    opacity: 0.4,
-  },
-});

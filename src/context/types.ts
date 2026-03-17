@@ -8,13 +8,15 @@ import type {
   UserSession,
   UserStats,
 } from '../types';
+import type { ThemeKey } from '../theme';
 
 export type AppTab = 'Today' | 'Talk' | 'Settings';
 
 export interface AppState {
-  // Auth
+  // Auth / Transfer
   session: UserSession | null;
-  emailInput: string;
+  transferCodeInput: string;
+  issuedTransferCode: string | null;
   isAuthenticating: boolean;
 
   // Pets
@@ -35,9 +37,13 @@ export interface AppState {
   activeTab: AppTab;
   showLimitModal: boolean;
   showWelcome: boolean;
+  themeKey: ThemeKey;
 
   // Plan
   isPlanUpdating: boolean;
+
+  // Ad
+  isAdLoading: boolean;
 
   // Stats & economy
   userStats: UserStats;
@@ -59,9 +65,10 @@ export interface AppState {
 }
 
 export type AppAction =
-  // Auth
+  // Auth / Transfer
   | { type: 'SET_SESSION'; session: UserSession | null }
-  | { type: 'SET_EMAIL_INPUT'; value: string }
+  | { type: 'SET_TRANSFER_CODE_INPUT'; value: string }
+  | { type: 'SET_ISSUED_TRANSFER_CODE'; code: string | null }
   | { type: 'SET_IS_AUTHENTICATING'; value: boolean }
 
   // Pets
@@ -88,9 +95,13 @@ export type AppAction =
   | { type: 'SET_ACTIVE_TAB'; tab: AppTab }
   | { type: 'SET_SHOW_LIMIT_MODAL'; value: boolean }
   | { type: 'SET_SHOW_WELCOME'; value: boolean }
+  | { type: 'SET_THEME'; key: ThemeKey }
 
   // Plan
   | { type: 'SET_IS_PLAN_UPDATING'; value: boolean }
+
+  // Ad
+  | { type: 'SET_IS_AD_LOADING'; value: boolean }
 
   // Stats & economy
   | { type: 'SET_USER_STATS'; stats: UserStats }

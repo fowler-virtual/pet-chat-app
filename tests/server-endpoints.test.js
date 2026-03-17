@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 const { readDb, writeDb } = require('../server/db');
-const { createOrGetDemoUser, getUserByToken } = require('../server/auth');
+const { createAnonymousUser, issueTransferCode, redeemTransferCode, getUserByToken } = require('../server/auth');
 
 // Helper: set up a clean db with a test user and pet
 function setupTestDb() {
   const user = {
     id: 'user-test-1',
-    email: 'test@example.com',
     plan: 'free',
     authToken: 'test-token-123',
     createdAt: new Date().toISOString(),
@@ -55,29 +54,56 @@ function setupTestDb() {
 describe('auth', () => {
   beforeEach(() => setupTestDb());
 
-  it('createOrGetDemoUser creates a new user', () => {
-    const user = createOrGetDemoUser('new@example.com');
+  it('createAnonymousUser creates a new user', () => {
+    const user = createAnonymousUser();
     expect(user).toBeTruthy();
-    expect(user.email).toBe('new@example.com');
     expect(user.plan).toBe('free');
     expect(user.authToken).toBeTruthy();
+    expect(user.id).toMatch(/^user-/);
   });
 
-  it('createOrGetDemoUser returns existing user with new token', () => {
-    const user = createOrGetDemoUser('test@example.com');
-    expect(user.email).toBe('test@example.com');
-    expect(user.authToken).not.toBe('test-token-123'); // new token
+  it('issueTransferCode returns a code for valid user', () => {
+    const result = issueTransferCode('user-test-1');
+    expect(result).toBeTruthy();
+    expect(result.transferCode).toHaveLength(8);
+    expect(result.expiresAt).toBeTruthy();
   });
 
-  it('createOrGetDemoUser returns null for empty email', () => {
-    expect(createOrGetDemoUser('')).toBeNull();
-    expect(createOrGetDemoUser(null)).toBeNull();
+  it('issueTransferCode returns null for unknown user', () => {
+    const result = issueTransferCode('user-unknown');
+    expect(result).toBeNull();
+  });
+
+  it('redeemTransferCode returns user and invalidates old token', () => {
+    const issued = issueTransferCode('user-test-1');
+    const user = redeemTransferCode(issued.transferCode);
+    expect(user).toBeTruthy();
+    expect(user.id).toBe('user-test-1');
+    expect(user.authToken).not.toBe('test-token-123'); // rotated
+
+    // Old token should no longer work
+    expect(getUserByToken('test-token-123')).toBeNull();
+    // New token works
+    expect(getUserByToken(user.authToken)).toBeTruthy();
+  });
+
+  it('redeemTransferCode returns null for invalid code', () => {
+    expect(redeemTransferCode('BADCODE1')).toBeNull();
+    expect(redeemTransferCode('')).toBeNull();
+    expect(redeemTransferCode(null)).toBeNull();
+  });
+
+  it('redeemTransferCode clears the code so it cannot be reused', () => {
+    const issued = issueTransferCode('user-test-1');
+    redeemTransferCode(issued.transferCode);
+    // Second redemption should fail
+    expect(redeemTransferCode(issued.transferCode)).toBeNull();
   });
 
   it('getUserByToken returns user for valid token', () => {
     const user = getUserByToken('test-token-123');
     expect(user).toBeTruthy();
-    expect(user.email).toBe('test@example.com');
+    expect(user.id).toBe('user-test-1');
   });
 
   it('getUserByToken returns null for invalid token', () => {

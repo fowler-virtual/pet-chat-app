@@ -1,32 +1,29 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
+// @ts-expect-error — vendor type declarations missing in @expo/vector-icons build
+import { Ionicons } from '@expo/vector-icons';
+
 import { useAppContext } from '../context/AppContext';
-import { palette, shadow } from '../theme';
+import { useThemePalette, shadow } from '../theme';
 import { AD_VIEW_LIMIT } from '../types';
+import { getTodayString } from '../lib/dateUtils';
 import { createInitialPetLine } from '../lib/petPersona';
-import { daysSince } from '../lib/dateUtils';
 import PetAvatar from '../components/PetAvatar';
 import NoticeBanner from '../components/NoticeBanner';
 import OfflineBanner from '../components/OfflineBanner';
-import QuoteCard from '../components/QuoteCard';
-import { shareQuoteAsImage } from '../lib/shareQuote';
 
 export default function TodayScreen() {
-  const { state, dispatch, actions } = useAppContext();
-  const { pets, userStats, inventory, adReward, notice, apiStatus } = state;
+  const palette = useThemePalette();
+  const { state, dispatch, actions, dailyLimit, remainingMessages } = useAppContext();
+  const { pets, inventory, adReward, notice, apiStatus, isAdLoading } = state;
   const plan = state.session?.plan ?? 'free';
+  const isExhausted = remainingMessages <= 0;
+  const hasAnyItem = inventory.snack > 0 || inventory.meal > 0 || inventory.feast > 0;
   const navigation = useNavigation<any>();
 
-  const quoteCardRef = useRef<View>(null);
-  const [isSharing, setIsSharing] = useState(false);
-
-  const featuredPet = useMemo(
-    () => (pets.length > 0 ? pets[Math.floor(Math.random() * pets.length)] : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pets.length],
-  );
+  const featuredPet = pets.length > 0 ? pets[0] : null;
 
   const todayLine = useMemo(
     () => (featuredPet ? createInitialPetLine(featuredPet) : ''),
@@ -34,440 +31,415 @@ export default function TodayScreen() {
     [featuredPet?.id],
   );
 
-  const daysActive = daysSince(userStats.firstOpenDate);
+  const isFoodNotice = notice !== null && (notice.includes('もらったよ') || notice.includes('使いました'));
+
+  const adToday = adReward.date === getTodayString() ? adReward.viewCount : 0;
+  const adRemaining = AD_VIEW_LIMIT - adToday;
+  const adExhausted = adRemaining <= 0;
+  const isPlusUser = plan === 'plus';
+  const adAvailable = !adExhausted;
+
+  const progressRatio = dailyLimit > 0 ? remainingMessages / dailyLimit : 0;
+
+  const styles = useMemo(() => StyleSheet.create({
+    bg: { flex: 1 },
+    content: {
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      paddingBottom: 130,
+      alignItems: 'center',
+    },
+    avatarArea: {
+      marginTop: 8,
+      marginBottom: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarRing: {
+      width: 140,
+      height: 140,
+      borderRadius: 70,
+      borderWidth: 3,
+      borderColor: 'rgba(200, 149, 108, 0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.65)',
+      ...shadow.lg,
+    },
+    petName: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: palette.ink,
+      marginBottom: 12,
+    },
+    bubble: {
+      position: 'relative',
+      backgroundColor: 'rgba(255,255,255,0.92)',
+      borderRadius: 20,
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+      maxWidth: '92%',
+      marginBottom: 24,
+      ...shadow.md,
+    },
+    bubbleTail: {
+      position: 'absolute',
+      top: -8,
+      left: '50%',
+      marginLeft: -8,
+      width: 0,
+      height: 0,
+      borderLeftWidth: 8,
+      borderRightWidth: 8,
+      borderBottomWidth: 8,
+      borderLeftColor: 'transparent',
+      borderRightColor: 'transparent',
+      borderBottomColor: 'rgba(255,255,255,0.92)',
+    },
+    bubbleText: {
+      fontSize: 16,
+      lineHeight: 26,
+      color: palette.ink,
+      textAlign: 'center',
+    },
+    talkBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.accent,
+      borderRadius: 30,
+      paddingVertical: 18,
+      width: '80%',
+      gap: 10,
+      marginBottom: 24,
+      borderBottomWidth: 4,
+      borderBottomColor: 'rgba(255,255,255,0.4)',
+      ...shadow.lg,
+    },
+    talkBtnText: {
+      color: '#FFFFFF',
+      fontSize: 20,
+      fontWeight: '700',
+    },
+    card: {
+      backgroundColor: 'rgba(255,255,255,0.92)',
+      borderRadius: 20,
+      padding: 18,
+      width: '100%',
+      gap: 8,
+      marginBottom: 16,
+      ...shadow.sm,
+    },
+    remainRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'center',
+      gap: 4,
+    },
+    remainLabel: {
+      fontSize: 15,
+      color: palette.ink,
+      fontWeight: '600',
+    },
+    remainNumber: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: palette.accent,
+      lineHeight: 32,
+    },
+    progressContainer: {
+      width: '100%',
+      marginTop: 4,
+    },
+    progressTrack: {
+      width: '100%',
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: palette.chip,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 6,
+      backgroundColor: palette.accent,
+    },
+    exhaustedHint: {
+      fontSize: 13,
+      color: palette.accent,
+      textAlign: 'center',
+      fontWeight: '600',
+    },
+    cardHighlight: {
+      borderWidth: 2,
+      borderColor: palette.accent,
+    },
+    cardTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 8,
+    },
+    cardTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: palette.ink,
+    },
+    cardDesc: {
+      fontSize: 11,
+      color: palette.muted,
+    },
+    itemsRow: {
+      flexDirection: 'column',
+      gap: 6,
+    },
+    itemCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: palette.accentSoft,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+    },
+    itemIconBox: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    itemEmoji: {
+      fontSize: 22,
+    },
+    itemDisabled: {
+      opacity: 0.4,
+    },
+    itemName: {
+      fontSize: 14,
+      color: palette.ink,
+      fontWeight: '600',
+    },
+    itemBonus: {
+      fontSize: 12,
+      color: palette.accent,
+      fontWeight: '700',
+    },
+    itemStock: {
+      fontSize: 13,
+      color: palette.text,
+      fontWeight: '600',
+    },
+    adBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: palette.secondary,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+    },
+    adBtnDisabled: {
+      backgroundColor: palette.chip,
+    },
+    adBtnText: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+      fontSize: 14,
+    },
+    adBtnTextDisabled: {
+      color: palette.muted,
+    },
+    adBtnSub: {
+      color: 'rgba(255,255,255,0.7)',
+      fontSize: 12,
+    },
+    foodNotice: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: palette.accentSoft,
+      borderRadius: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+    },
+    foodNoticeText: {
+      fontSize: 13,
+      color: palette.accent,
+      fontWeight: '600',
+    },
+    otherPetRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 6,
+    },
+    otherPetName: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '600',
+      color: palette.ink,
+    },
+  }), [palette]);
 
   return (
-    <ScrollView contentContainerStyle={styles.screenContent}>
-      <NoticeBanner notice={notice} />
-      <OfflineBanner status={apiStatus} onRetry={() => void actions.retryConnection()} />
+    <ImageBackground source={require('../../assets/ui/background_home.png')} style={styles.bg} resizeMode="cover">
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
+        <NoticeBanner notice={isFoodNotice ? null : notice} />
+        <OfflineBanner status={apiStatus} onRetry={() => void actions.retryConnection()} />
 
-      {featuredPet ? (
-        <>
-          <View style={styles.heroCard}>
-            <View style={styles.heroGlowLarge} />
-            <View style={styles.heroGlowSmall} />
-            <Text style={styles.eyebrow}>今のきもち</Text>
-            <View style={styles.todayHeroIdentity}>
-              <PetAvatar pet={featuredPet} size={48} />
-              <Text style={styles.todayPetName}>{featuredPet.name}</Text>
+        {featuredPet && (
+          <>
+            {/* -------- 1. Pet avatar -------- */}
+            <View style={styles.avatarArea}>
+              <View style={styles.avatarRing}>
+                <PetAvatar pet={featuredPet} size={120} />
+              </View>
             </View>
-            <Text style={styles.todayHeroLine}>{todayLine}</Text>
+
+            {/* -------- 2. Pet name -------- */}
+            <Text style={styles.petName}>{featuredPet.name}</Text>
+
+            {/* -------- 3. Speech bubble -------- */}
+            <View style={styles.bubble}>
+              <View style={styles.bubbleTail} />
+              <Text style={styles.bubbleText}>{todayLine}</Text>
+            </View>
+
+            {/* -------- 4. Main CTA: Talk button -------- */}
             <Pressable
-              style={styles.heroShareButton}
-              disabled={isSharing}
-              onPress={async () => {
-                setIsSharing(true);
-                try {
-                  await shareQuoteAsImage(quoteCardRef, featuredPet.name, todayLine);
-                } catch {
-                  // sharing cancelled or failed — silent
-                } finally {
-                  setIsSharing(false);
-                }
+              style={styles.talkBtn}
+              onPress={() => {
+                dispatch({ type: 'SET_SELECTED_PET_ID', petId: featuredPet.id });
+                navigation.navigate('Talk');
               }}
             >
-              <Feather name="share" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.heroShareButtonText}>
-                {isSharing ? 'シェア中…' : 'シェア'}
-              </Text>
+              <Ionicons name="chatbubble-ellipses" size={24} color="#FFFFFF" />
+              <Text style={styles.talkBtnText}>はなす</Text>
             </Pressable>
-          </View>
 
-          <View style={styles.hiddenCapture}>
-            <QuoteCard
-              ref={quoteCardRef}
-              petName={featuredPet.name}
-              species={featuredPet.species}
-              quote={todayLine}
-            />
-          </View>
-
-          {pets.map((pet) => (
-            <View key={pet.id} style={styles.profileCard}>
-              <PetAvatar pet={pet} size={56} />
-              <View style={styles.profileCardText}>
-                <Text style={styles.profileCardName}>{pet.name}</Text>
-                <Text style={styles.profileCardMeta}>{pet.species} ・ {pet.gender}</Text>
-              </View>
-              <Pressable style={styles.profileTalkButton} onPress={() => { dispatch({ type: 'SET_SELECTED_PET_ID', petId: pet.id }); navigation.navigate('Talk'); }}>
-                <Text style={styles.profileTalkButtonText}>話す</Text>
-              </Pressable>
+            {/* -------- 5. Remaining conversation count -------- */}
+            <View style={styles.card}>
+              {isExhausted ? (
+                <>
+                  <View style={styles.remainRow}>
+                    <Text style={styles.remainLabel}>今日はいっぱいおはなししました</Text>
+                  </View>
+                  <View style={styles.progressContainer}>
+                    <View style={styles.progressTrack} />
+                  </View>
+                  <Text style={styles.exhaustedHint}>
+                    {hasAnyItem
+                      ? 'たべものを使うと、またおはなしできるよ'
+                      : adAvailable
+                        ? (isPlusUser ? 'おやつをもらうと、またおはなしできるよ' : '動画を見ておやつをもらうと、また話せるよ')
+                        : 'また明日おはなししようね'}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <View style={styles.remainRow}>
+                    <Text style={styles.remainLabel}>あと</Text>
+                    <Text style={styles.remainNumber}>{remainingMessages}</Text>
+                    <Text style={styles.remainLabel}>回おはなしできます</Text>
+                  </View>
+                  <View style={styles.progressContainer}>
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+                    </View>
+                  </View>
+                </>
+              )}
             </View>
-          ))}
 
-          {plan === 'free' && (
-            <View style={styles.featureCard}>
-              <Text style={styles.inventoryTitle}>たべもの</Text>
-              <Text style={styles.inventoryHeading}>使うとおはなしできる回数が増えます</Text>
-              <View style={styles.inventoryRow}>
+            {/* -------- 6. Food items -------- */}
+            <View style={[styles.card, isExhausted && hasAnyItem && styles.cardHighlight]}>
+              <View style={styles.cardTitleRow}>
+                <Text style={styles.cardTitle}>たべもの</Text>
+                <Text style={styles.cardDesc}>
+                  {isExhausted ? 'おはなしの回数を増やせます' : '使うとおはなしできる回数が増えます'}
+                </Text>
+              </View>
+              <View style={styles.itemsRow}>
                 <Pressable
-                  style={[styles.inventoryItem, inventory.snack <= 0 && styles.disabledButton]}
+                  style={[styles.itemCard, inventory.snack <= 0 && styles.itemDisabled]}
                   onPress={() => actions.handleUseItem('snack')}
                   disabled={inventory.snack <= 0}
                 >
-                  <MaterialCommunityIcons name="cookie" size={20} color={palette.accent} />
-                  <Text style={styles.inventoryLabel}>おやつ</Text>
-                  <Text style={styles.inventoryCount}>×{inventory.snack}</Text>
-                  <Text style={styles.inventoryUse}>使う（+3回）</Text>
+                  <View style={styles.itemIconBox}><Text style={styles.itemEmoji}>🍪</Text></View>
+                  <Text style={styles.itemName}>おやつ</Text>
+                  <Text style={styles.itemBonus}>(+3回)</Text>
+                  <View style={{ flex: 1 }} />
+                  <Text style={styles.itemStock}>×{inventory.snack}</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.inventoryItem, inventory.meal <= 0 && styles.disabledButton]}
+                  style={[styles.itemCard, inventory.meal <= 0 && styles.itemDisabled]}
                   onPress={() => actions.handleUseItem('meal')}
                   disabled={inventory.meal <= 0}
                 >
-                  <MaterialCommunityIcons name="food-variant" size={20} color={palette.accent} />
-                  <Text style={styles.inventoryLabel}>ごはん</Text>
-                  <Text style={styles.inventoryCount}>×{inventory.meal}</Text>
-                  <Text style={styles.inventoryUse}>使う（+5回）</Text>
+                  <View style={styles.itemIconBox}><Text style={styles.itemEmoji}>🍚</Text></View>
+                  <Text style={styles.itemName}>ごはん</Text>
+                  <Text style={styles.itemBonus}>(+5回)</Text>
+                  <View style={{ flex: 1 }} />
+                  <Text style={styles.itemStock}>×{inventory.meal}</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.inventoryItem, inventory.feast <= 0 && styles.disabledButton]}
+                  style={[styles.itemCard, inventory.feast <= 0 && styles.itemDisabled]}
                   onPress={() => actions.handleUseItem('feast')}
                   disabled={inventory.feast <= 0}
                 >
-                  <MaterialCommunityIcons name="silverware-fork-knife" size={20} color={palette.accent} />
-                  <Text style={styles.inventoryLabel}>ごちそう</Text>
-                  <Text style={styles.inventoryCount}>×{inventory.feast}</Text>
-                  <Text style={styles.inventoryUse}>使う（+10回）</Text>
+                  <View style={styles.itemIconBox}><Text style={styles.itemEmoji}>🍽</Text></View>
+                  <Text style={styles.itemName}>ごちそう</Text>
+                  <Text style={styles.itemBonus}>(+10回)</Text>
+                  <View style={{ flex: 1 }} />
+                  <Text style={styles.itemStock}>×{inventory.feast}</Text>
                 </Pressable>
               </View>
-              {(() => {
-                const remaining = AD_VIEW_LIMIT - adReward.viewCount;
-                const exhausted = remaining <= 0;
-                return (
-                  <Pressable
-                    style={[styles.adRewardButton, exhausted && styles.adRewardButtonDisabled]}
-                    onPress={() => void actions.handleAdReward()}
-                    disabled={exhausted}
-                  >
-                    <Feather name="play-circle" size={18} color={exhausted ? palette.muted : '#FFFFFF'} style={{ marginRight: 6 }} />
-                    <Text style={[styles.adRewardButtonText, exhausted && styles.adRewardButtonTextDisabled]}>
-                      {exhausted
-                        ? '今日の広告はすべて見ました'
-                        : `広告を見ておやつをもらう（のこり${remaining}回）`}
-                    </Text>
-                  </Pressable>
-                );
-              })()}
-            </View>
-          )}
 
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{userStats.loginStreak}</Text>
-              <Text style={styles.statLabel}>連続ログイン</Text>
+              {isFoodNotice && (
+                <View style={styles.foodNotice}>
+                  <Feather name="check-circle" size={14} color={palette.accent} />
+                  <Text style={styles.foodNoticeText}>{notice}</Text>
+                </View>
+              )}
+
+              {/* Ad reward / Plus skip button */}
+              <Pressable
+                style={[styles.adBtn, (adExhausted || isAdLoading) && styles.adBtnDisabled]}
+                onPress={() => void actions.handleAdReward()}
+                disabled={adExhausted || isAdLoading}
+              >
+                <View style={styles.itemIconBox}><Feather name={isPlusUser ? 'gift' : 'play-circle'} size={22} color={(adExhausted || isAdLoading) ? palette.muted : '#FFFFFF'} /></View>
+                <Text style={[styles.adBtnText, (adExhausted || isAdLoading) && styles.adBtnTextDisabled]}>
+                  {isAdLoading ? '読み込み中...'
+                    : adExhausted ? (isPlusUser ? '今日はすべてもらいました' : '今日の動画はすべて見ました')
+                    : isPlusUser ? 'たべものをもらう' : '動画を見てたべものをもらう'}
+                </Text>
+                <View style={{ flex: 1 }} />
+                {!adExhausted && !isAdLoading && (
+                  <Text style={styles.adBtnSub}>あと{adRemaining}回</Text>
+                )}
+              </Pressable>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{userStats.totalMessagesSent}</Text>
-              <Text style={styles.statLabel}>おしゃべり</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{daysActive}</Text>
-              <Text style={styles.statLabel}>日目</Text>
-            </View>
-          </View>
-        </>
-      ) : (
-        <>
-          <View style={styles.heroCard}>
-            <View style={styles.heroGlowLarge} />
-            <View style={styles.heroGlowSmall} />
-            <Text style={styles.eyebrow}>WELCOME</Text>
-            <Text style={styles.heroTitle}>最初の1匹をつくる</Text>
-            <Text style={styles.heroSubtitle}>名前、種類、性格だけで会話を始められます。</Text>
-          </View>
-          <View style={styles.featureCard}>
-            <Text style={styles.todaySectionLabel}>はじめる</Text>
-            <Text style={styles.todaySectionText}>最初の1匹をつくると、ここが毎日の入口になります。</Text>
-            <View style={styles.startSteps}>
-              <View style={styles.startStepCard}>
-                <Text style={styles.startStepNumber}>1</Text>
-                <Text style={styles.startStepText}>名前と種類を決める</Text>
+
+            {/* Other pets */}
+            {pets.length > 1 && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>ほかの子</Text>
+                {pets.filter(p => p.id !== featuredPet.id).map((pet) => (
+                  <Pressable
+                    key={pet.id}
+                    style={styles.otherPetRow}
+                    onPress={() => { dispatch({ type: 'SET_SELECTED_PET_ID', petId: pet.id }); navigation.navigate('Talk'); }}
+                  >
+                    <PetAvatar pet={pet} size={40} />
+                    <Text style={styles.otherPetName}>{pet.name}</Text>
+                    <Feather name="message-circle" size={16} color={palette.accent} />
+                  </Pressable>
+                ))}
               </View>
-              <View style={styles.startStepCard}>
-                <Text style={styles.startStepNumber}>2</Text>
-                <Text style={styles.startStepText}>性格を選ぶ</Text>
-              </View>
-              <View style={styles.startStepCard}>
-                <Text style={styles.startStepNumber}>3</Text>
-                <Text style={styles.startStepText}>写真はあとからでOK</Text>
-              </View>
-            </View>
-            <Pressable style={styles.primaryButton} onPress={() => navigation.navigate('Settings')}>
-              <Text style={styles.primaryButtonText}>最初の1匹を追加する</Text>
-            </Pressable>
-          </View>
-        </>
-      )}
-    </ScrollView>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </ImageBackground>
   );
 }
 
-const styles = StyleSheet.create({
-  screenContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 120,
-    gap: 20,
-  },
-  heroCard: {
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: palette.secondary,
-    borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingVertical: 24,
-    gap: 12,
-    ...shadow.lg,
-  },
-  heroGlowLarge: {
-    position: 'absolute',
-    top: -40,
-    right: -30,
-    width: 180,
-    height: 180,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    opacity: 0.10,
-  },
-  heroGlowSmall: {
-    position: 'absolute',
-    bottom: -40,
-    left: -30,
-    width: 140,
-    height: 140,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    opacity: 0.06,
-  },
-  eyebrow: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-  },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  heroSubtitle: {
-    color: 'rgba(255,255,255,0.85)',
-    lineHeight: 21,
-    fontSize: 14,
-  },
-  todayHeroIdentity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  todayPetName: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  todayHeroLine: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    lineHeight: 34,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  heroShareButton: {
-    alignSelf: 'flex-end',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginTop: 4,
-  },
-  heroShareButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  hiddenCapture: {
-    position: 'absolute',
-    left: -9999,
-    top: -9999,
-  },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: palette.surface,
-    borderRadius: 20,
-    padding: 16,
-    ...shadow.md,
-  },
-  profileCardText: {
-    flex: 1,
-    gap: 3,
-  },
-  profileCardName: {
-    color: palette.ink,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  profileCardMeta: {
-    color: palette.text,
-    fontSize: 13,
-  },
-  profileTalkButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: palette.accent,
-  },
-  profileTalkButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  featureCard: {
-    backgroundColor: palette.surface,
-    borderRadius: 20,
-    padding: 20,
-    gap: 16,
-    ...shadow.md,
-  },
-  inventoryTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: palette.ink,
-  },
-  inventoryHeading: {
-    fontSize: 12,
-    color: palette.text,
-    marginBottom: 8,
-  },
-  inventoryRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  inventoryItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: palette.accentSoft,
-    borderRadius: 14,
-    paddingVertical: 12,
-  },
-  inventoryLabel: {
-    fontSize: 12,
-    color: palette.ink,
-    fontWeight: '600',
-  },
-  inventoryCount: {
-    color: palette.text,
-    fontSize: 13,
-  },
-  inventoryUse: {
-    color: palette.accent,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  adRewardButton: {
-    flexDirection: 'row',
-    backgroundColor: palette.secondary,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  adRewardButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  adRewardButtonDisabled: {
-    backgroundColor: palette.chip,
-  },
-  adRewardButtonTextDisabled: {
-    color: palette.muted,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: palette.surface,
-    borderRadius: 16,
-    paddingVertical: 16,
-    ...shadow.sm,
-  },
-  statValue: {
-    color: palette.accent,
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  statLabel: {
-    color: palette.text,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  todaySectionLabel: {
-    color: palette.accent,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  todaySectionText: {
-    color: palette.ink,
-    fontSize: 20,
-    lineHeight: 28,
-    fontWeight: '700',
-  },
-  startSteps: {
-    gap: 10,
-  },
-  startStepCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: palette.surface,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    ...shadow.sm,
-  },
-  startStepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    textAlign: 'center',
-    lineHeight: 28,
-    backgroundColor: palette.accent,
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    overflow: 'hidden',
-  },
-  startStepText: {
-    color: palette.ink,
-    fontWeight: '600',
-    flex: 1,
-    fontSize: 15,
-  },
-  primaryButton: {
-    backgroundColor: palette.accent,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadow.sm,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  disabledButton: {
-    opacity: 0.4,
-  },
-});

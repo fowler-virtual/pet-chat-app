@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import QuoteCard from './QuoteCard';
 import { shareQuoteAsImage } from '../lib/shareQuote';
 import type { ChatMessage } from '../types';
-import { palette } from '../theme';
+import { useThemePalette } from '../theme';
 
 export default function MessageActionSheet({
   visible,
@@ -22,9 +22,62 @@ export default function MessageActionSheet({
   onReuse: () => void;
   onDelete: () => void;
 }) {
+  const palette = useThemePalette();
   const shareCardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
   const isPetMessage = message?.sender === 'pet';
+
+  const styles = useMemo(() => StyleSheet.create({
+    sheetBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      justifyContent: 'flex-end',
+    },
+    sheetCard: {
+      backgroundColor: palette.surface,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 34,
+      gap: 10,
+    },
+    sheetTitle: {
+      color: palette.ink,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    sheetPreview: {
+      color: palette.text,
+      lineHeight: 20,
+    },
+    sheetQuoteCardWrapper: {
+      marginVertical: 8,
+      transform: [{ scale: 0.85 }],
+    },
+    sheetButton: {
+      backgroundColor: palette.canvas,
+      borderRadius: 14,
+      paddingVertical: 15,
+      alignItems: 'center',
+    },
+    sheetButtonText: {
+      color: palette.ink,
+      fontWeight: '600',
+    },
+    sheetButtonDanger: {
+      color: palette.danger,
+    },
+    sheetCancel: {
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    sheetCancelText: {
+      color: palette.muted,
+      fontWeight: '600',
+    },
+  }), [palette]);
 
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -79,54 +132,3 @@ export default function MessageActionSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  sheetBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
-  },
-  sheetCard: {
-    backgroundColor: palette.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 34,
-    gap: 10,
-  },
-  sheetTitle: {
-    color: palette.ink,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  sheetPreview: {
-    color: palette.text,
-    lineHeight: 20,
-  },
-  sheetQuoteCardWrapper: {
-    marginVertical: 8,
-    transform: [{ scale: 0.85 }],
-  },
-  sheetButton: {
-    backgroundColor: palette.canvas,
-    borderRadius: 14,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  sheetButtonText: {
-    color: palette.ink,
-    fontWeight: '600',
-  },
-  sheetButtonDanger: {
-    color: palette.danger,
-  },
-  sheetCancel: {
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  sheetCancelText: {
-    color: palette.muted,
-    fontWeight: '600',
-  },
-});

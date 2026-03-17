@@ -9,21 +9,26 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "http://localhost:3001",
-        "EXPO_PUBLIC_IAP_ENABLED": "false"
+        "EXPO_PUBLIC_IAP_ENABLED": "false",
+        "EXPO_PUBLIC_ADMOB_ENABLED": "false"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://api.example.com",
-        "EXPO_PUBLIC_IAP_ENABLED": "false"
+        "EXPO_PUBLIC_IAP_ENABLED": "false",
+        "EXPO_PUBLIC_ADMOB_ENABLED": "true",
+        "EXPO_PUBLIC_ADMOB_REWARDED_ID": "ca-app-pub-3940256099942544/5224354917"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://api.example.com",
-        "EXPO_PUBLIC_IAP_ENABLED": "true"
+        "EXPO_PUBLIC_IAP_ENABLED": "true",
+        "EXPO_PUBLIC_ADMOB_ENABLED": "true",
+        "EXPO_PUBLIC_ADMOB_REWARDED_ID": "YOUR_PRODUCTION_REWARDED_AD_UNIT_ID"
       }
     }
   },

@@ -1,39 +1,39 @@
 const crypto = require('crypto');
 const { readDb, updateDb } = require('./db');
 
+// 紛らわしい文字を除外: 0/O, 1/I/L
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const CODE_LENGTH = 8;
+const CODE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24時間
+
 function sanitizeUser(user) {
   return {
     id: user.id,
-    email: user.email,
     plan: user.plan,
     authToken: user.authToken,
   };
 }
 
-function createOrGetDemoUser(email) {
-  const normalizedEmail = String(email || '').trim().toLowerCase();
-  if (!normalizedEmail) {
-    return null;
+function generateTransferCode() {
+  let code = '';
+  const bytes = crypto.randomBytes(CODE_LENGTH);
+  for (let i = 0; i < CODE_LENGTH; i++) {
+    code += CODE_CHARS[bytes[i] % CODE_CHARS.length];
   }
+  return code;
+}
 
+/** 匿名ユーザーを新規作成 */
+function createAnonymousUser() {
   let resultUser = null;
 
   updateDb((db) => {
-    const existing = db.users.find((user) => user.email === normalizedEmail);
-    if (existing) {
-      existing.authToken = crypto.randomUUID();
-      resultUser = existing;
-      return db;
-    }
-
     const user = {
       id: `user-${crypto.randomUUID()}`,
-      email: normalizedEmail,
       plan: 'free',
       authToken: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
-
     db.users.push(user);
     resultUser = user;
     return db;
@@ -42,11 +42,50 @@ function createOrGetDemoUser(email) {
   return sanitizeUser(resultUser);
 }
 
-function getUserByToken(authToken) {
-  if (!authToken) {
-    return null;
-  }
+/** 引き継ぎコードを発行（24時間有効） */
+function issueTransferCode(userId) {
+  const code = generateTransferCode();
+  const expiresAt = new Date(Date.now() + CODE_EXPIRY_MS).toISOString();
+  let success = false;
 
+  updateDb((db) => {
+    const user = db.users.find((u) => u.id === userId);
+    if (!user) return db;
+    user.transferCode = code;
+    user.transferCodeExpiresAt = expiresAt;
+    success = true;
+    return db;
+  });
+
+  return success ? { transferCode: code, expiresAt } : null;
+}
+
+/** 引き継ぎコードでデータ復元（旧端末は無効化） */
+function redeemTransferCode(code) {
+  const normalized = String(code || '').trim().toUpperCase();
+  if (normalized.length !== CODE_LENGTH) return null;
+
+  let resultUser = null;
+
+  updateDb((db) => {
+    const user = db.users.find(
+      (u) => u.transferCode === normalized && u.transferCodeExpiresAt && new Date(u.transferCodeExpiresAt) > new Date(),
+    );
+    if (!user) return db;
+
+    // 旧端末のトークンを無効化 & 新トークン発行
+    user.authToken = crypto.randomUUID();
+    user.transferCode = null;
+    user.transferCodeExpiresAt = null;
+    resultUser = user;
+    return db;
+  });
+
+  return resultUser ? sanitizeUser(resultUser) : null;
+}
+
+function getUserByToken(authToken) {
+  if (!authToken) return null;
   const db = readDb();
   const user = db.users.find((item) => item.authToken === authToken);
   return user ? sanitizeUser(user) : null;
@@ -66,8 +105,9 @@ function requireAuth(req, res, next) {
 }
 
 module.exports = {
-  createOrGetDemoUser,
+  createAnonymousUser,
+  issueTransferCode,
+  redeemTransferCode,
   getUserByToken,
   requireAuth,
 };
-

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { palette } from '../theme';
+import { useThemePalette } from '../theme';
 
 export default function ScreenHeader({
   title,
@@ -13,6 +13,39 @@ export default function ScreenHeader({
   avatar?: React.ReactNode;
   compact?: boolean;
 }) {
+  const palette = useThemePalette();
+  const styles = useMemo(() => StyleSheet.create({
+    screenHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    screenHeaderCompact: {
+      minHeight: 44,
+    },
+    screenHeaderAvatar: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    screenHeaderTextWrap: {
+      flex: 1,
+    },
+    screenTitle: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: palette.ink,
+      letterSpacing: -0.5,
+    },
+    screenTitleCompact: {
+      fontSize: 22,
+    },
+    screenSubtitle: {
+      fontSize: 13,
+      lineHeight: 19,
+      color: palette.text,
+    },
+  }), [palette]);
+
   return (
     <View style={[styles.screenHeader, compact && styles.screenHeaderCompact]}>
       {avatar && <View style={styles.screenHeaderAvatar}>{avatar}</View>}
@@ -24,34 +57,3 @@ export default function ScreenHeader({
   );
 }
 
-const styles = StyleSheet.create({
-  screenHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  screenHeaderCompact: {
-    minHeight: 44,
-  },
-  screenHeaderAvatar: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  screenHeaderTextWrap: {
-    flex: 1,
-  },
-  screenTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: palette.ink,
-    letterSpacing: -0.5,
-  },
-  screenTitleCompact: {
-    fontSize: 22,
-  },
-  screenSubtitle: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: palette.text,
-  },
-});

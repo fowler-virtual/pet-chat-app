@@ -1,10 +1,13 @@
 import { useEffect } from 'react';
-import type { Dispatch } from 'react';
+import type { Dispatch, MutableRefObject } from 'react';
 import type { AppState, AppAction } from './types';
+import type { AppActions } from './appActions';
 import { loadPersistedAppState, savePersistedAppState } from '../lib/storage';
-import { fetchAuthMe, fetchBootstrap, fetchHealth } from '../lib/api';
+import { ApiError, fetchAuthMe, fetchBootstrap, fetchHealth, syncUpload } from '../lib/api';
 import { getTodayString, updateLoginStreak, resetBonusIfNewDay, resetAdRewardIfNewDay } from '../lib/dateUtils';
 import { normalizePetProfile } from '../lib/petUtils';
+import { initializeIAP } from '../lib/iapService';
+import type { ThemeKey } from '../theme';
 
 export function useHydration(dispatch: Dispatch<AppAction>) {
   useEffect(() => {
@@ -35,9 +38,9 @@ export function useHydration(dispatch: Dispatch<AppAction>) {
             adReward: resetAdRewardIfNewDay(stored.adReward ?? { date: getTodayString(), viewCount: 0 }),
             bonusMessages: bonus,
             bonusDate: date,
+            ...(stored.themeKey ? { themeKey: stored.themeKey as ThemeKey } : {}),
             notice: isNewDay ? 'ログインボーナス！おやつ×1をもらいました' : null,
-            dailySentCount: isNewDay ? 0 : undefined,
-            dailySentDate: isNewDay ? getTodayString() : undefined,
+            ...(isNewDay ? { dailySentCount: 0, dailySentDate: getTodayString() } : {}),
           },
         });
       } finally {
@@ -63,8 +66,9 @@ export function usePersistence(state: AppState) {
       adReward: state.adReward,
       bonusMessages: state.bonusMessages,
       bonusDate: state.bonusDate,
+      themeKey: state.themeKey,
     });
-  }, [state.isHydrating, state.session, state.pets, state.selectedPetId, state.messagesByPetId, state.unreadCounts, state.userStats, state.inventory, state.adReward, state.bonusMessages, state.bonusDate]);
+  }, [state.isHydrating, state.session, state.pets, state.selectedPetId, state.messagesByPetId, state.unreadCounts, state.userStats, state.inventory, state.adReward, state.bonusMessages, state.bonusDate, state.themeKey]);
 }
 
 export function useHealthCheck(dispatch: Dispatch<AppAction>) {
@@ -83,31 +87,50 @@ export function useHealthCheck(dispatch: Dispatch<AppAction>) {
   }, [dispatch]);
 }
 
-export function useSessionRefresh(authToken: string | undefined, dispatch: Dispatch<AppAction>) {
+export function useSessionRefresh(authToken: string | undefined, stateRef: React.RefObject<AppState>, dispatch: Dispatch<AppAction>) {
   useEffect(() => {
     if (!authToken) return;
     let active = true;
     async function refresh() {
       try {
-        const [{ session: freshSession }, bootstrap] = await Promise.all([
+        const { pets, messagesByPetId } = stateRef.current!;
+        let syncFailed = false;
+        const [{ session: freshSession }] = await Promise.all([
           fetchAuthMe(authToken!),
-          fetchBootstrap(authToken!),
+          pets.length > 0
+            ? syncUpload({ pets, messagesByPetId }, authToken!).catch(() => { syncFailed = true; })
+            : Promise.resolve(),
         ]);
         if (!active) return;
+        const bootstrap = await fetchBootstrap(authToken!);
+        if (!active) return;
+        const serverPets = (bootstrap.pets ?? []).map(normalizePetProfile);
+        const serverPetIds = new Set(serverPets.map((p: { id: string }) => p.id));
+        const localOnlyPets = syncFailed ? pets.filter((p) => !serverPetIds.has(p.id)) : [];
+        const mergedPets = [...serverPets, ...localOnlyPets];
+        const localOnlyMessages = syncFailed
+          ? Object.fromEntries(Object.entries(messagesByPetId).filter(([id]) => !bootstrap.messagesByPetId?.[id]))
+          : {};
         dispatch({
           type: 'SIGN_IN_COMPLETE',
           session: freshSession,
-          pets: (bootstrap.pets ?? []).map(normalizePetProfile),
-          selectedPetId: bootstrap.selectedPetId || bootstrap.pets[0]?.id || '',
-          messagesByPetId: bootstrap.messagesByPetId,
+          pets: mergedPets,
+          selectedPetId: bootstrap.selectedPetId || mergedPets[0]?.id || '',
+          messagesByPetId: { ...localOnlyMessages, ...bootstrap.messagesByPetId },
         });
-      } catch {
-        if (active) dispatch({ type: 'SET_API_STATUS', status: 'offline' });
+      } catch (error) {
+        if (!active) return;
+        if (error instanceof ApiError && error.status === 401) {
+          // トークンが無効 → セッションをクリアしてゲストモードに戻す
+          dispatch({ type: 'SET_SESSION', session: null });
+        } else {
+          dispatch({ type: 'SET_API_STATUS', status: 'offline' });
+        }
       }
     }
     void refresh();
     return () => { active = false; };
-  }, [authToken, dispatch]);
+  }, [authToken, stateRef, dispatch]);
 }
 
 export function useClearUnread(activeTab: string, selectedPetId: string, dispatch: Dispatch<AppAction>) {
@@ -124,4 +147,20 @@ export function useAutoDismissNotice(notice: string | null, dispatch: Dispatch<A
     const timer = setTimeout(() => dispatch({ type: 'SET_NOTICE', notice: null }), 4000);
     return () => clearTimeout(timer);
   }, [notice, dispatch]);
+}
+
+export function useIAPSetup(isHydrating: boolean, actions: AppActions) {
+  useEffect(() => {
+    if (isHydrating) return;
+    let active = true;
+
+    async function setup() {
+      await initializeIAP();
+      if (!active) return;
+      await actions.restoreSubscription();
+    }
+
+    void setup();
+    return () => { active = false; };
+  }, [isHydrating, actions]);
 }

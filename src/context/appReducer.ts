@@ -6,7 +6,8 @@ export function createInitialState(): AppState {
   const today = getTodayString();
   return {
     session: null,
-    emailInput: '',
+    transferCodeInput: '',
+    issuedTransferCode: null,
     isAuthenticating: false,
     pets: [],
     selectedPetId: '',
@@ -20,8 +21,10 @@ export function createInitialState(): AppState {
     notice: null,
     activeTab: 'Today',
     showLimitModal: false,
-    showWelcome: false,
+    showWelcome: true,
+    themeKey: 'beige',
     isPlanUpdating: false,
+    isAdLoading: false,
     userStats: updateLoginStreak(undefined),
     inventory: { snack: 0, meal: 0, feast: 0 },
     adReward: { date: today, viewCount: 0 },
@@ -42,8 +45,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     // Auth
     case 'SET_SESSION':
       return { ...state, session: action.session };
-    case 'SET_EMAIL_INPUT':
-      return { ...state, emailInput: action.value };
+    case 'SET_TRANSFER_CODE_INPUT':
+      return { ...state, transferCodeInput: action.value };
+    case 'SET_ISSUED_TRANSFER_CODE':
+      return { ...state, issuedTransferCode: action.code };
     case 'SET_IS_AUTHENTICATING':
       return { ...state, isAuthenticating: action.value };
 
@@ -72,6 +77,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         unreadCounts: restUnread,
         selectedPetId: newSelectedId,
         farewellTarget: null,
+        showWelcome: newPets.length === 0 ? true : state.showWelcome,
       };
     }
     case 'SET_SELECTED_PET_ID':
@@ -117,10 +123,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, showLimitModal: action.value };
     case 'SET_SHOW_WELCOME':
       return { ...state, showWelcome: action.value };
+    case 'SET_THEME':
+      return { ...state, themeKey: action.key };
 
     // Plan
     case 'SET_IS_PLAN_UPDATING':
       return { ...state, isPlanUpdating: action.value };
+    case 'SET_IS_AD_LOADING':
+      return { ...state, isAdLoading: action.value };
 
     // Stats & economy
     case 'SET_USER_STATS':
@@ -161,8 +171,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, messageActionState: action.state };
 
     // Bulk
-    case 'HYDRATE':
-      return { ...state, ...action.payload };
+    case 'HYDRATE': {
+      const hydrated = { ...state, ...action.payload };
+      if (hydrated.pets.length === 0) {
+        hydrated.showWelcome = true;
+      }
+      return hydrated;
+    }
     case 'SIGN_IN_COMPLETE':
       return {
         ...state,
@@ -170,7 +185,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         pets: action.pets,
         selectedPetId: action.selectedPetId,
         messagesByPetId: action.messagesByPetId,
-        emailInput: action.session.email,
+        transferCodeInput: '',
+        issuedTransferCode: null,
         apiStatus: 'online',
         isAuthenticating: false,
       };

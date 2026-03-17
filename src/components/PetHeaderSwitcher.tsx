@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { PetProfile } from '../types';
-import { palette } from '../theme';
+import { useThemePalette } from '../theme';
 import PetAvatar from './PetAvatar';
 
 export default React.memo(function PetHeaderSwitcher({
@@ -15,6 +15,53 @@ export default React.memo(function PetHeaderSwitcher({
   unreadCounts: Record<string, number>;
   onSelectPet: (petId: string) => void;
 }) {
+  const palette = useThemePalette();
+  const styles = useMemo(() => StyleSheet.create({
+    petHeaderSwitcher: {
+      gap: 6,
+      paddingVertical: 0,
+    },
+    petHeaderItem: {
+      width: 62,
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 2,
+      opacity: 0.5,
+    },
+    petHeaderItemActive: {
+      opacity: 1,
+    },
+    petHeaderAvatarWrap: {
+      position: 'relative',
+    },
+    petHeaderUnreadBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      minWidth: 18,
+      height: 18,
+      paddingHorizontal: 4,
+      borderRadius: 999,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.accent,
+    },
+    petHeaderUnreadBadgeText: {
+      color: '#FFFFFF',
+      fontSize: 10,
+      fontWeight: '700',
+    },
+    petHeaderName: {
+      color: palette.ink,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    petHeaderNameActive: {
+      color: palette.accent,
+      fontWeight: '700',
+    },
+  }), [palette]);
+
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.petHeaderSwitcher}>
       {pets.map((pet) => {
@@ -43,48 +90,3 @@ export default React.memo(function PetHeaderSwitcher({
   );
 });
 
-const styles = StyleSheet.create({
-  petHeaderSwitcher: {
-    gap: 6,
-    paddingVertical: 0,
-  },
-  petHeaderItem: {
-    width: 62,
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 2,
-    opacity: 0.5,
-  },
-  petHeaderItemActive: {
-    opacity: 1,
-  },
-  petHeaderAvatarWrap: {
-    position: 'relative',
-  },
-  petHeaderUnreadBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.accent,
-  },
-  petHeaderUnreadBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  petHeaderName: {
-    color: palette.ink,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  petHeaderNameActive: {
-    color: palette.accent,
-    fontWeight: '700',
-  },
-});

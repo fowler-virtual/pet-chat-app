@@ -9,7 +9,7 @@ Expo (React Native Web) + Express backend.
 npm install              # 依存インストール
 npx expo start --web     # フロントエンド起動
 node server/index.js     # バックエンド起動
-npx vitest run           # テスト実行 (179 tests)
+npx vitest run           # テスト実行 (193 tests, 8 files)
 ```
 
 ## Architecture
@@ -108,11 +108,17 @@ docs/
 tests/
   plan-limits.test.js       # プラン制限テスト
   ai-router.test.js         # AIルーターテスト
+  app-reducer.test.ts        # Reducerテスト
+  app-actions.test.ts        # 非同期アクションテスト
+  date-utils.test.ts         # 日付ユーティリティテスト
+  pet-utils.test.ts          # ペットデータ正規化テスト
+  constants.test.ts          # 定数テスト
+  server-endpoints.test.js   # サーバーエンドポイントテスト
 ```
 
 ## Testing
 
 - テストは `tests/` ディレクトリに配置
 - Vitest を使用
-- 現在 179 tests passing
+- 現在 193 tests passing (8 test files)
 - `npx vitest run` で全テスト実行、`npx vitest` でwatch mode

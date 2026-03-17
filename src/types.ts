@@ -80,6 +80,7 @@ export interface PersistedAppState {
   adReward?: AdRewardState;
   bonusMessages?: number;  // 今日のアイテム追加回数
   bonusDate?: string;      // bonusMessages の対象日
+  themeKey?: string;
 }
 
 export interface ChatRequest {
@@ -103,7 +104,6 @@ export interface PersonaPreview {
 
 export interface UserSession {
   id: string;
-  email: string;
   authToken: string;
   plan: SubscriptionPlan;
 }

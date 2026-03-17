@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createAppActions } from '../src/context/appActions';
+import { createAppActions, _resetSendThrottle } from '../src/context/appActions';
 import { createInitialState } from '../src/context/appReducer';
 import type { AppState, AppAction } from '../src/context/types';
 import type { PetProfile } from '../src/types';
@@ -20,10 +20,13 @@ vi.mock('../src/lib/api', () => ({
   fetchAuthMe: vi.fn(),
   fetchBootstrap: vi.fn(),
   fetchHealth: vi.fn(),
-  signInDemo: vi.fn(),
+  registerAnonymous: vi.fn(),
+  apiIssueTransferCode: vi.fn(),
+  apiRedeemTransferCode: vi.fn(),
   subscribePlan: vi.fn(),
   syncUpload: vi.fn(),
   updatePet: vi.fn(),
+  verifyReceipt: vi.fn(),
 }));
 
 vi.mock('../src/lib/chatService', () => ({
@@ -32,6 +35,11 @@ vi.mock('../src/lib/chatService', () => ({
 
 vi.mock('../src/lib/adService', () => ({
   showRewardedAd: vi.fn(),
+}));
+
+vi.mock('../src/lib/iapService', () => ({
+  purchaseSubscription: vi.fn(),
+  checkSubscriptionStatus: vi.fn().mockResolvedValue({ active: false }),
 }));
 
 const mockPet: PetProfile = {
@@ -63,9 +71,10 @@ describe('handleLogout', () => {
   it('dispatches SET_SESSION null and notice', () => {
     const { actions, dispatched } = createTestActions();
     actions.handleLogout();
-    expect(dispatched).toHaveLength(2);
+    expect(dispatched).toHaveLength(3);
     expect(dispatched[0]).toEqual({ type: 'SET_SESSION', session: null });
-    expect(dispatched[1]).toEqual({ type: 'SET_NOTICE', notice: 'ログアウトしました。' });
+    expect(dispatched[1]).toEqual({ type: 'SET_ISSUED_TRANSFER_CODE', code: null });
+    expect(dispatched[2]).toEqual({ type: 'SET_NOTICE', notice: '引き継ぎを解除しました。' });
   });
 });
 
@@ -85,13 +94,24 @@ describe('handleDeletePet', () => {
 });
 
 describe('handleUseItem', () => {
-  it('dispatches SET_USE_ITEM_CONFIRM when inventory > 0', () => {
+  it('applies snack immediately without confirm modal', () => {
     const { actions, dispatched } = createTestActions({
       inventory: { snack: 2, meal: 0, feast: 0 },
     });
     actions.handleUseItem('snack');
+    const types = dispatched.map((d) => d.type);
+    expect(types).toContain('USE_INVENTORY_ITEM');
+    expect(types).toContain('SET_BONUS');
+    expect(types).not.toContain('SET_USE_ITEM_CONFIRM');
+  });
+
+  it('dispatches SET_USE_ITEM_CONFIRM for meal/feast', () => {
+    const { actions, dispatched } = createTestActions({
+      inventory: { snack: 0, meal: 3, feast: 0 },
+    });
+    actions.handleUseItem('meal');
     expect(dispatched).toHaveLength(1);
-    expect(dispatched[0]).toEqual({ type: 'SET_USE_ITEM_CONFIRM', itemType: 'snack' });
+    expect(dispatched[0]).toEqual({ type: 'SET_USE_ITEM_CONFIRM', itemType: 'meal' });
   });
 
   it('does nothing when inventory is 0', () => {
@@ -105,7 +125,7 @@ describe('handleUseItem', () => {
 
 describe('confirmUseItem', () => {
   it('dispatches USE_INVENTORY_ITEM, SET_BONUS, clear confirm, and notice', () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('sv-SE');
     const { actions, dispatched } = createTestActions({
       useItemConfirm: 'snack',
       bonusDate: today,
@@ -125,7 +145,7 @@ describe('confirmUseItem', () => {
   });
 
   it('adds correct bonus for meal (+5)', () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('sv-SE');
     const { actions, dispatched } = createTestActions({
       useItemConfirm: 'meal',
       bonusDate: today,
@@ -209,6 +229,7 @@ describe('triggerDebugReply', () => {
 describe('handleSendMessage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    _resetSendThrottle();
   });
 
   it('does nothing when no pet selected', async () => {
@@ -269,21 +290,21 @@ describe('handleSendMessage', () => {
   });
 });
 
-describe('handleSignIn', () => {
+describe('handleRedeemTransferCode', () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
-  it('does nothing when email is empty', async () => {
-    const { actions, dispatched } = createTestActions({ emailInput: '   ' });
-    await actions.handleSignIn();
+  it('does nothing when code is empty', async () => {
+    const { actions, dispatched } = createTestActions({ transferCodeInput: '   ' });
+    await actions.handleRedeemTransferCode();
     expect(dispatched).toHaveLength(0);
   });
 
   it('dispatches SIGN_IN_COMPLETE on success', async () => {
-    const { signInDemo, fetchBootstrap } = await import('../src/lib/api');
-    (signInDemo as any).mockResolvedValue({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+    const { apiRedeemTransferCode, fetchBootstrap } = await import('../src/lib/api');
+    (apiRedeemTransferCode as any).mockResolvedValue({
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
     (fetchBootstrap as any).mockResolvedValue({
       pets: [mockPet],
@@ -291,26 +312,52 @@ describe('handleSignIn', () => {
       messagesByPetId: {},
     });
 
-    const { actions, dispatched } = createTestActions({ emailInput: 'a@b.com' });
-    await actions.handleSignIn();
+    const { actions, dispatched } = createTestActions({ transferCodeInput: 'A3K9M2X7' });
+    await actions.handleRedeemTransferCode();
 
     expect(dispatched.some((a) => a.type === 'SET_IS_AUTHENTICATING')).toBe(true);
     expect(dispatched.some((a) => a.type === 'SIGN_IN_COMPLETE')).toBe(true);
-    expect(dispatched.some((a) => a.type === 'SET_NOTICE')).toBe(true);
   });
 
-  it('handles sign-in failure', async () => {
-    const { signInDemo } = await import('../src/lib/api');
-    (signInDemo as any).mockRejectedValue(new Error('network error'));
+  it('handles redeem failure', async () => {
+    const { apiRedeemTransferCode } = await import('../src/lib/api');
+    (apiRedeemTransferCode as any).mockRejectedValue(new Error('network error'));
 
-    const { actions, dispatched } = createTestActions({ emailInput: 'a@b.com' });
-    await actions.handleSignIn();
+    const { actions, dispatched } = createTestActions({ transferCodeInput: 'BADCODE1' });
+    await actions.handleRedeemTransferCode();
 
     const noticeAction = dispatched.find(
-      (a) => a.type === 'SET_NOTICE' && (a as any).notice?.includes('ログインに失敗'),
+      (a) => a.type === 'SET_NOTICE' && (a as any).notice?.includes('引き継ぎに失敗'),
     );
     expect(noticeAction).toBeDefined();
-    expect(dispatched.some((a) => a.type === 'SET_API_STATUS')).toBe(true);
+  });
+});
+
+describe('handleIssueTransferCode', () => {
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    // restoreSubscription uses dynamic import of iapService — re-setup mock after resetAllMocks
+    const { checkSubscriptionStatus } = await import('../src/lib/iapService');
+    (checkSubscriptionStatus as any).mockResolvedValue({ active: false });
+  });
+
+  it('creates anonymous user and issues code when no session', async () => {
+    const { registerAnonymous, apiIssueTransferCode } = await import('../src/lib/api');
+    (registerAnonymous as any).mockResolvedValue({
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
+    });
+    (apiIssueTransferCode as any).mockResolvedValue({
+      transferCode: 'A3K9M2X7',
+      expiresAt: '2026-01-01',
+    });
+
+    const { actions, dispatched } = createTestActions();
+    await actions.handleIssueTransferCode();
+
+    expect(registerAnonymous).toHaveBeenCalled();
+    expect(dispatched.some((a) => a.type === 'SET_ISSUED_TRANSFER_CODE')).toBe(true);
+    const codeAction = dispatched.find((a) => a.type === 'SET_ISSUED_TRANSFER_CODE') as any;
+    expect(codeAction.code).toBe('A3K9M2X7');
   });
 });
 
@@ -320,7 +367,7 @@ describe('handleAdReward', () => {
   });
 
   it('does nothing when ad view limit reached', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('sv-SE');
     const { actions, dispatched } = createTestActions({
       adReward: { date: today, viewCount: 3 },
     });
@@ -328,11 +375,11 @@ describe('handleAdReward', () => {
     expect(dispatched).toHaveLength(0);
   });
 
-  it('adds snack on successful ad view', async () => {
+  it('adds random item on successful ad view', async () => {
     const { showRewardedAd } = await import('../src/lib/adService');
     (showRewardedAd as any).mockResolvedValue({ success: true });
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('sv-SE');
     const { actions, dispatched } = createTestActions({
       adReward: { date: today, viewCount: 0 },
     });
@@ -341,20 +388,57 @@ describe('handleAdReward', () => {
     expect(dispatched.some((a) => a.type === 'SET_AD_REWARD')).toBe(true);
     expect(dispatched.some((a) => a.type === 'ADD_INVENTORY_ITEM')).toBe(true);
     const itemAction = dispatched.find((a) => a.type === 'ADD_INVENTORY_ITEM') as any;
-    expect(itemAction.itemType).toBe('snack');
+    expect(['snack', 'meal', 'feast']).toContain(itemAction.itemType);
     expect(itemAction.amount).toBe(1);
   });
 
-  it('does nothing when ad is not watched', async () => {
+  it('shows error notice on ad failure', async () => {
     const { showRewardedAd } = await import('../src/lib/adService');
-    (showRewardedAd as any).mockResolvedValue({ success: false });
+    (showRewardedAd as any).mockResolvedValue({ success: false, reason: 'ad_error' });
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('sv-SE');
     const { actions, dispatched } = createTestActions({
       adReward: { date: today, viewCount: 0 },
     });
     await actions.handleAdReward();
-    expect(dispatched).toHaveLength(0);
+    const types = dispatched.map((d) => d.type);
+    expect(types).toContain('SET_IS_AD_LOADING');
+    expect(types).toContain('SET_NOTICE');
+    expect(types).not.toContain('ADD_INVENTORY_ITEM');
+  });
+
+  it('does nothing on user cancel', async () => {
+    const { showRewardedAd } = await import('../src/lib/adService');
+    (showRewardedAd as any).mockResolvedValue({ success: false, reason: 'not_completed' });
+
+    const today = new Date().toLocaleDateString('sv-SE');
+    const { actions, dispatched } = createTestActions({
+      adReward: { date: today, viewCount: 0 },
+    });
+    await actions.handleAdReward();
+    const types = dispatched.map((d) => d.type);
+    expect(types).toContain('SET_IS_AD_LOADING');
+    expect(types).not.toContain('SET_NOTICE');
+    expect(types).not.toContain('ADD_INVENTORY_ITEM');
+  });
+
+  it('plus user skips ad and gets item directly', async () => {
+    const { showRewardedAd } = await import('../src/lib/adService');
+
+    const today = new Date().toLocaleDateString('sv-SE');
+    const { actions, dispatched } = createTestActions({
+      session: { id: 'u1', authToken: 'tok', plan: 'plus' },
+      adReward: { date: today, viewCount: 0 },
+    });
+    await actions.handleAdReward();
+
+    // showRewardedAd should NOT be called for Plus users
+    expect(showRewardedAd).not.toHaveBeenCalled();
+
+    expect(dispatched.some((a) => a.type === 'ADD_INVENTORY_ITEM')).toBe(true);
+    const itemAction = dispatched.find((a) => a.type === 'ADD_INVENTORY_ITEM') as any;
+    expect(['snack', 'meal', 'feast']).toContain(itemAction.itemType);
+    expect(itemAction.amount).toBe(1);
   });
 });
 
@@ -386,7 +470,7 @@ describe('confirmFarewell', () => {
 
     const { actions, dispatched } = createTestActions({
       farewellTarget: mockPet,
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
     await actions.confirmFarewell();
     expect(deletePet).toHaveBeenCalledWith('pet-1', 'tok');
@@ -437,7 +521,7 @@ describe('handleAddPet', () => {
     (createPet as any).mockResolvedValue({ pet: mockPet });
 
     const { actions, dispatched } = createTestActions({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
     const result = await actions.handleAddPet(mockPet);
     expect(result).toBe(true);
@@ -452,7 +536,7 @@ describe('handleAddPet', () => {
     (createPet as any).mockRejectedValue(err);
 
     const { actions, dispatched } = createTestActions({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
     const result = await actions.handleAddPet(mockPet);
     expect(result).toBe(false);
@@ -468,13 +552,13 @@ describe('handleAddPet', () => {
     (createPet as any).mockRejectedValue(new Error('server down'));
 
     const { actions, dispatched } = createTestActions({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
     const result = await actions.handleAddPet(mockPet);
     expect(result).toBe(false);
 
     const noticeAction = dispatched.find(
-      (a) => a.type === 'SET_NOTICE' && (a as any).notice?.includes('ペット登録に失敗'),
+      (a) => a.type === 'SET_NOTICE' && (a as any).notice?.includes('おむかえに失敗'),
     ) as any;
     expect(noticeAction).toBeDefined();
   });
@@ -521,7 +605,7 @@ describe('handleSavePet', () => {
     (updatePet as any).mockResolvedValue({ pet: { ...mockPet, name: 'むぎ改' } });
 
     const { actions, dispatched } = createTestActions({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
     const result = await actions.handleSavePet(mockPet);
     expect(result).toBe(true);
@@ -536,7 +620,7 @@ describe('handleSavePet', () => {
     (updatePet as any).mockRejectedValue(new Error('network error'));
 
     const { actions, dispatched } = createTestActions({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
     const result = await actions.handleSavePet(mockPet);
     expect(result).toBe(false);
@@ -552,7 +636,7 @@ describe('handleSavePet', () => {
     (updatePet as any).mockRejectedValue(new Error('fail'));
 
     const { actions, dispatched } = createTestActions({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
     await actions.handleSavePet(mockPet);
 
@@ -568,43 +652,83 @@ describe('handlePlanUpgrade', () => {
     vi.resetAllMocks();
   });
 
-  it('does nothing when not authenticated', async () => {
-    const { actions, dispatched } = createTestActions({ session: null });
-    await actions.handlePlanUpgrade('plus');
-    expect(dispatched).toHaveLength(0);
-  });
-
-  it('upgrades plan successfully', async () => {
-    const { subscribePlan } = await import('../src/lib/api');
-    const newSession = { authToken: 'tok', email: 'a@b.com', plan: 'plus' as const };
-    (subscribePlan as any).mockResolvedValue({ session: newSession });
+  it('upgrades plan successfully with purchase + receipt verification', async () => {
+    const { purchaseSubscription } = await import('../src/lib/iapService');
+    const { verifyReceipt } = await import('../src/lib/api');
+    (purchaseSubscription as any).mockResolvedValue({ success: true, productId: 'plus_monthly', receipt: 'test-receipt' });
+    const newSession = { id: 'u1', authToken: 'tok', plan: 'plus' as const };
+    (verifyReceipt as any).mockResolvedValue({ session: newSession, verified: true, plan: 'plus' });
 
     const { actions, dispatched } = createTestActions({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
     await actions.handlePlanUpgrade('plus');
 
-    expect(subscribePlan).toHaveBeenCalledWith('plus', 'tok');
+    expect(purchaseSubscription).toHaveBeenCalled();
+    expect(verifyReceipt).toHaveBeenCalledWith('plus_monthly', 'test-receipt', 'unknown', 'tok');
 
     const sessionAction = dispatched.find((a) => a.type === 'SET_SESSION') as any;
     expect(sessionAction.session.plan).toBe('plus');
 
     const noticeAction = dispatched.find(
-      (a) => a.type === 'SET_NOTICE' && (a as any).notice?.includes('PLUS'),
+      (a) => a.type === 'SET_NOTICE' && (a as any).notice?.includes('Plus'),
     ) as any;
     expect(noticeAction).toBeDefined();
-
-    expect(dispatched.some((a) => a.type === 'SET_API_STATUS')).toBe(true);
   });
 
-  it('sets isPlanUpdating true then false on success', async () => {
-    const { subscribePlan } = await import('../src/lib/api');
-    (subscribePlan as any).mockResolvedValue({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'plus' },
-    });
+  it('does nothing on user cancel', async () => {
+    const { purchaseSubscription } = await import('../src/lib/iapService');
+    (purchaseSubscription as any).mockResolvedValue({ success: false, reason: 'cancelled' });
 
     const { actions, dispatched } = createTestActions({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
+    });
+    await actions.handlePlanUpgrade('plus');
+
+    const noticeActions = dispatched.filter((a) => a.type === 'SET_NOTICE' && (a as any).notice !== null);
+    expect(noticeActions).toHaveLength(0);
+  });
+
+  it('shows error notice on purchase failure', async () => {
+    const { purchaseSubscription } = await import('../src/lib/iapService');
+    (purchaseSubscription as any).mockResolvedValue({ success: false, reason: 'purchase_failed_2' });
+
+    const { actions, dispatched } = createTestActions({
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
+    });
+    await actions.handlePlanUpgrade('plus');
+
+    const noticeAction = dispatched.find(
+      (a) => a.type === 'SET_NOTICE' && (a as any).notice?.includes('購入処理に失敗'),
+    ) as any;
+    expect(noticeAction).toBeDefined();
+  });
+
+  it('handles server verification failure gracefully', async () => {
+    const { purchaseSubscription } = await import('../src/lib/iapService');
+    const { verifyReceipt } = await import('../src/lib/api');
+    (purchaseSubscription as any).mockResolvedValue({ success: true, productId: 'plus_monthly', receipt: 'test-receipt' });
+    (verifyReceipt as any).mockRejectedValue(new Error('server error'));
+
+    const { actions, dispatched } = createTestActions({
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
+    });
+    await actions.handlePlanUpgrade('plus');
+
+    const noticeAction = dispatched.find(
+      (a) => a.type === 'SET_NOTICE' && (a as any).notice?.includes('次回起動時'),
+    ) as any;
+    expect(noticeAction).toBeDefined();
+  });
+
+  it('sets isPlanUpdating true then false', async () => {
+    const { purchaseSubscription } = await import('../src/lib/iapService');
+    const { verifyReceipt } = await import('../src/lib/api');
+    (purchaseSubscription as any).mockResolvedValue({ success: true, productId: 'plus_monthly', receipt: 'r' });
+    (verifyReceipt as any).mockResolvedValue({ session: { plan: 'plus' }, verified: true, plan: 'plus' });
+
+    const { actions, dispatched } = createTestActions({
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
     await actions.handlePlanUpgrade('plus');
 
@@ -614,32 +738,28 @@ describe('handlePlanUpgrade', () => {
     expect(updatingActions[1].value).toBe(false);
   });
 
-  it('shows error notice on failure', async () => {
-    const { subscribePlan } = await import('../src/lib/api');
-    (subscribePlan as any).mockRejectedValue(new Error('payment failed'));
+  it('upgrades locally when not logged in', async () => {
+    const { purchaseSubscription } = await import('../src/lib/iapService');
+    (purchaseSubscription as any).mockResolvedValue({ success: true, productId: 'plus_monthly', receipt: 'r' });
 
-    const { actions, dispatched } = createTestActions({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
-    });
+    const { actions, dispatched } = createTestActions({ session: null });
     await actions.handlePlanUpgrade('plus');
 
-    const noticeAction = dispatched.find(
-      (a) => a.type === 'SET_NOTICE' && (a as any).notice?.includes('プラン更新に失敗'),
-    ) as any;
-    expect(noticeAction).toBeDefined();
+    const sessionAction = dispatched.find((a) => a.type === 'SET_SESSION') as any;
+    expect(sessionAction.session.plan).toBe('plus');
   });
 
-  it('resets isPlanUpdating on failure', async () => {
-    const { subscribePlan } = await import('../src/lib/api');
-    (subscribePlan as any).mockRejectedValue(new Error('fail'));
+  it('prevents double-tap with isPlanUpdating guard', async () => {
+    const { purchaseSubscription } = await import('../src/lib/iapService');
 
     const { actions, dispatched } = createTestActions({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
+      isPlanUpdating: true,
     });
     await actions.handlePlanUpgrade('plus');
 
-    const lastUpdating = [...dispatched].reverse().find((a) => a.type === 'SET_IS_PLAN_UPDATING') as any;
-    expect(lastUpdating.value).toBe(false);
+    expect(purchaseSubscription).not.toHaveBeenCalled();
+    expect(dispatched).toHaveLength(0);
   });
 });
 
@@ -648,9 +768,10 @@ describe('handlePlanUpgrade', () => {
 describe('handleSendMessage (edge cases)', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    _resetSendThrottle();
   });
 
-  it('shows limit modal on daily_limit_reached error', async () => {
+  it('does not show limit modal on daily_limit_reached error', async () => {
     const { sendPetChatMessage } = await import('../src/lib/chatService');
     const { ApiError } = await import('../src/lib/api');
     const err = new (ApiError as any)('limit', 'daily_limit_reached');
@@ -664,7 +785,7 @@ describe('handleSendMessage (edge cases)', () => {
     });
     await actions.handleSendMessage();
 
-    expect(dispatched.some((a) => a.type === 'SET_SHOW_LIMIT_MODAL' && (a as any).value === true)).toBe(true);
+    expect(dispatched.some((a) => a.type === 'SET_SHOW_LIMIT_MODAL')).toBe(false);
   });
 
   it('shows error notice on generic send failure', async () => {
@@ -726,59 +847,34 @@ describe('handleSendMessage (edge cases)', () => {
   });
 });
 
-// ── handleSignIn (sync upload) ──
+// ── handleIssueTransferCode (sync upload) ──
 
-describe('handleSignIn (sync)', () => {
+describe('handleIssueTransferCode (sync)', () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
-  it('uploads local pets before bootstrap when pets exist', async () => {
-    const { signInDemo, fetchBootstrap, syncUpload } = await import('../src/lib/api');
-    (signInDemo as any).mockResolvedValue({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
+  it('uploads local pets when issuing code without session', async () => {
+    const { registerAnonymous, apiIssueTransferCode, syncUpload } = await import('../src/lib/api');
+    (registerAnonymous as any).mockResolvedValue({
+      session: { authToken: 'tok', id: 'u1', plan: 'free' },
     });
-    (fetchBootstrap as any).mockResolvedValue({
-      pets: [mockPet],
-      selectedPetId: 'pet-1',
-      messagesByPetId: {},
+    (apiIssueTransferCode as any).mockResolvedValue({
+      transferCode: 'XYZCODE1',
+      expiresAt: '2026-01-01',
     });
     (syncUpload as any).mockResolvedValue({ ok: true, uploadedCount: 1 });
 
     const { actions } = createTestActions({
-      emailInput: 'a@b.com',
       pets: [mockPet],
       messagesByPetId: { 'pet-1': [] },
     });
-    await actions.handleSignIn();
+    await actions.handleIssueTransferCode();
 
     expect(syncUpload).toHaveBeenCalledWith(
       { pets: [mockPet], messagesByPetId: { 'pet-1': [] } },
       'tok',
     );
-  });
-
-  it('continues login even when sync upload fails', async () => {
-    const { signInDemo, fetchBootstrap, syncUpload } = await import('../src/lib/api');
-    (signInDemo as any).mockResolvedValue({
-      session: { authToken: 'tok', email: 'a@b.com', plan: 'free' },
-    });
-    (fetchBootstrap as any).mockResolvedValue({
-      pets: [],
-      selectedPetId: '',
-      messagesByPetId: {},
-    });
-    (syncUpload as any).mockRejectedValue(new Error('sync failed'));
-
-    const { actions, dispatched } = createTestActions({
-      emailInput: 'a@b.com',
-      pets: [mockPet],
-      messagesByPetId: {},
-    });
-    await actions.handleSignIn();
-
-    // Login should still complete
-    expect(dispatched.some((a) => a.type === 'SIGN_IN_COMPLETE')).toBe(true);
   });
 });
 
@@ -809,6 +905,11 @@ describe('retryConnection', () => {
 });
 
 describe('retrySendMessage', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    _resetSendThrottle();
+  });
+
   it('does nothing when no failedMessage', async () => {
     const { actions, dispatched } = createTestActions({ failedMessage: null });
     await actions.retrySendMessage();
@@ -834,6 +935,11 @@ describe('retrySendMessage', () => {
 });
 
 describe('handleSendMessage failedMessage', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    _resetSendThrottle();
+  });
+
   it('saves failedMessage on generic error', async () => {
     const { sendPetChatMessage } = await import('../src/lib/chatService');
     (sendPetChatMessage as any).mockRejectedValue(new Error('timeout'));

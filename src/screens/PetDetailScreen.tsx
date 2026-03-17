@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useAppContext } from '../context/AppContext';
-import { palette, shadow } from '../theme';
+import { useThemePalette, shadow } from '../theme';
 import type { PetProfile } from '../types';
 import { genderOptions } from '../data/constants';
 import PetAvatar from '../components/PetAvatar';
@@ -12,6 +12,7 @@ import ScreenHeader from '../components/ScreenHeader';
 import { FormField, FieldLabel } from '../components/FormField';
 
 export default function PetDetailScreen() {
+  const palette = useThemePalette();
   const { state, actions } = useAppContext();
   const { pets, isSavingPet } = state;
   const navigation = useNavigation<any>();
@@ -58,9 +59,113 @@ export default function PetDetailScreen() {
 
   const canSubmit = Boolean(draft.name.trim() && draft.species.trim() && draft.personality.trim());
 
+  const styles = useMemo(() => StyleSheet.create({
+    fieldHint: {
+      fontSize: 12,
+      color: palette.muted,
+      marginTop: -2,
+    },
+    screenContent: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 120,
+      gap: 20,
+    },
+    detailHero: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      backgroundColor: palette.surface,
+      borderRadius: 20,
+      padding: 20,
+      ...shadow.md,
+    },
+    detailHeroText: {
+      gap: 4,
+    },
+    detailHeroMeta: {
+      color: palette.text,
+    },
+    avatarEditor: {
+      alignSelf: 'center',
+      position: 'relative',
+      marginVertical: 4,
+    },
+    avatarCameraBadge: {
+      position: 'absolute',
+      right: -2,
+      bottom: -2,
+      width: 30,
+      height: 30,
+      borderRadius: 999,
+      backgroundColor: palette.accent,
+      borderWidth: 2,
+      borderColor: palette.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarCameraBadgeText: {
+      fontSize: 14,
+    },
+    panelCard: {
+      backgroundColor: palette.surface,
+      borderRadius: 20,
+      padding: 20,
+      gap: 14,
+      ...shadow.md,
+    },
+    input: {
+      backgroundColor: palette.canvas,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      fontSize: 15,
+      color: palette.ink,
+    },
+    textArea: {
+      minHeight: 96,
+      textAlignVertical: 'top',
+    },
+    chipsRow: {
+      gap: 10,
+      paddingVertical: 2,
+    },
+    optionChip: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: palette.chip,
+    },
+    optionChipActive: {
+      backgroundColor: palette.accent,
+    },
+    optionChipText: {
+      color: palette.ink,
+      fontWeight: '600',
+    },
+    optionChipTextActive: {
+      color: '#FFFFFF',
+    },
+    primaryButton: {
+      backgroundColor: palette.accent,
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: 'center',
+      ...shadow.sm,
+    },
+    primaryButtonText: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    disabledButton: {
+      opacity: 0.4,
+    },
+  }), [palette]);
+
   return (
     <ScrollView contentContainerStyle={[styles.screenContent, { paddingBottom: 48 + insets.bottom }]}>
-      <ScreenHeader title={isNew ? '新しいペットを追加' : draft.name} />
+      <ScreenHeader title={isNew ? '新しいペットをおむかえ' : draft.name} />
 
       <View style={styles.detailHero}>
         <Pressable style={styles.avatarEditor} onPress={() => void pickImage()}>
@@ -84,7 +189,7 @@ export default function PetDetailScreen() {
             placeholder="例: むぎ / コタ / ピノ"
             placeholderTextColor={palette.muted}
           />
-          <FieldLabel text="あだ名" />
+          <FieldLabel text="呼び名" />
           <TextInput
             style={styles.input}
             value={draft.nickname}
@@ -92,6 +197,7 @@ export default function PetDetailScreen() {
             placeholder="例: むーちゃん / こっちゃん / ぴーちゃん"
             placeholderTextColor={palette.muted}
           />
+          <Text style={styles.fieldHint}>お名前と同じなら空欄でOK。複数ある場合は「、」や「/」で区切ってください</Text>
         </FormField>
 
         <FormField>
@@ -177,108 +283,10 @@ export default function PetDetailScreen() {
           }}
           disabled={!canSubmit || isSavingPet}
         >
-          <Text style={styles.primaryButtonText}>{isSavingPet ? '保存中…' : isNew ? 'この内容で登録' : '変更を保存'}</Text>
+          <Text style={styles.primaryButtonText}>{isSavingPet ? '保存中…' : isNew ? 'おむかえする' : '変更を保存'}</Text>
         </Pressable>
       </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  screenContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 120,
-    gap: 20,
-  },
-  detailHero: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: palette.surface,
-    borderRadius: 20,
-    padding: 20,
-    ...shadow.md,
-  },
-  detailHeroText: {
-    gap: 4,
-  },
-  detailHeroMeta: {
-    color: palette.text,
-  },
-  avatarEditor: {
-    alignSelf: 'center',
-    position: 'relative',
-    marginVertical: 4,
-  },
-  avatarCameraBadge: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    backgroundColor: palette.accent,
-    borderWidth: 2,
-    borderColor: palette.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarCameraBadgeText: {
-    fontSize: 14,
-  },
-  panelCard: {
-    backgroundColor: palette.surface,
-    borderRadius: 20,
-    padding: 20,
-    gap: 14,
-    ...shadow.md,
-  },
-  input: {
-    backgroundColor: palette.canvas,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: palette.ink,
-  },
-  textArea: {
-    minHeight: 96,
-    textAlignVertical: 'top',
-  },
-  chipsRow: {
-    gap: 10,
-    paddingVertical: 2,
-  },
-  optionChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: palette.chip,
-  },
-  optionChipActive: {
-    backgroundColor: palette.accent,
-  },
-  optionChipText: {
-    color: palette.ink,
-    fontWeight: '600',
-  },
-  optionChipTextActive: {
-    color: '#FFFFFF',
-  },
-  primaryButton: {
-    backgroundColor: palette.accent,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadow.sm,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  disabledButton: {
-    opacity: 0.4,
-  },
-});

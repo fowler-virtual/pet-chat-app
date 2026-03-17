@@ -3,6 +3,8 @@ import type { AppState, AppAction } from './types';
 import { appReducer, createInitialState } from './appReducer';
 import { createAppActions, type AppActions } from './appActions';
 import { DAILY_BASE_LIMIT } from '../types';
+import { getTodayString } from '../lib/dateUtils';
+import { getPalette, ThemeProvider } from '../theme';
 import {
   useHydration,
   usePersistence,
@@ -10,6 +12,7 @@ import {
   useSessionRefresh,
   useClearUnread,
   useAutoDismissNotice,
+  useIAPSetup,
 } from './useAppEffects';
 
 interface AppContextValue {
@@ -36,11 +39,9 @@ export function useAppContext(): AppContextValue {
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, undefined, createInitialState);
 
-  // Keep a ref to latest state for async actions
+  // Keep a ref to latest state for async actions (sync update, not useEffect)
   const stateRef = useRef(state);
-  useEffect(() => {
-    stateRef.current = state;
-  });
+  stateRef.current = state;
 
   const actions = useMemo(() => createAppActions(stateRef, dispatch), []);
 
@@ -48,9 +49,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useHydration(dispatch);
   usePersistence(state);
   useHealthCheck(dispatch);
-  useSessionRefresh(state.session?.authToken, dispatch);
+  useSessionRefresh(state.session?.authToken, stateRef, dispatch);
   useClearUnread(state.activeTab, state.selectedPetId, dispatch);
   useAutoDismissNotice(state.notice, dispatch);
+  useIAPSetup(state.isHydrating, actions);
 
   // --- Derived values ---
   const selectedPet = useMemo(
@@ -80,20 +82,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [state.messagesByPetId, state.pets, state.unreadCounts],
   );
 
-  const dailyLimit = useMemo(
-    () => DAILY_BASE_LIMIT[state.session?.plan ?? 'free'] + state.bonusMessages,
-    [state.session?.plan, state.bonusMessages],
-  );
+  const dailyLimit = useMemo(() => {
+    const base = DAILY_BASE_LIMIT[state.session?.plan ?? 'free'];
+    const bonus = state.bonusDate === getTodayString() ? state.bonusMessages : 0;
+    return base + bonus;
+  }, [state.session?.plan, state.bonusMessages, state.bonusDate]);
 
-  const remainingMessages = useMemo(
-    () => Math.max(0, dailyLimit - state.dailySentCount),
-    [dailyLimit, state.dailySentCount],
-  );
+  const remainingMessages = useMemo(() => {
+    const sent = state.dailySentDate === getTodayString() ? state.dailySentCount : 0;
+    return Math.max(0, dailyLimit - sent);
+  }, [dailyLimit, state.dailySentCount, state.dailySentDate]);
 
   const value = useMemo<AppContextValue>(
     () => ({ state, dispatch, actions, selectedPet, selectedMessages, remainingMessages, dailyLimit, totalUnreadCount, conversationMetaByPetId }),
     [state, actions, selectedPet, selectedMessages, remainingMessages, dailyLimit, totalUnreadCount, conversationMetaByPetId],
   );
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  const currentPalette = useMemo(() => getPalette(state.themeKey), [state.themeKey]);
+
+  return (
+    <AppContext.Provider value={value}>
+      <ThemeProvider value={currentPalette}>{children}</ThemeProvider>
+    </AppContext.Provider>
+  );
 }
