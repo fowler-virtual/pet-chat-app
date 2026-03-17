@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
-import { Alert, ImageBackground, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Alert, ImageBackground, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
@@ -234,7 +235,75 @@ export default function SettingsScreen() {
     themeCircleActive: {
       borderColor: palette.muted,
     },
+    legalRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    legalButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 14,
+      borderRadius: 14,
+      backgroundColor: palette.surfaceAlpha,
+      ...shadow.sm,
+    },
+    legalButtonText: {
+      fontSize: 13,
+      color: palette.text,
+      fontWeight: '600',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 40,
+    },
+    modalContent: {
+      flex: 1,
+      backgroundColor: palette.surface,
+      borderRadius: 20,
+      overflow: 'hidden',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: palette.border,
+    },
+    modalTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: palette.ink,
+    },
+    modalCloseButton: {
+      padding: 4,
+    },
+    modalBody: {
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+    },
+    modalText: {
+      fontSize: 13,
+      lineHeight: 22,
+      color: palette.text,
+    },
+    modalSectionTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: palette.ink,
+      marginTop: 16,
+      marginBottom: 4,
+    },
   }), [palette]);
+
+  const [legalModal, setLegalModal] = useState<'privacy' | 'terms' | null>(null);
 
   function onOpenPet(petId: string) {
     dispatch({ type: 'SET_SELECTED_PET_ID', petId });
@@ -402,8 +471,109 @@ export default function SettingsScreen() {
           <Text style={styles.secondaryButtonText}>{isAuthenticating ? '引き継ぎ中…' : 'データを引き継ぐ'}</Text>
         </Pressable>
       </View>
+      <View style={styles.legalRow}>
+        <Pressable style={styles.legalButton} onPress={() => setLegalModal('privacy')}>
+          <Feather name="shield" size={14} color={palette.muted} />
+          <Text style={styles.legalButtonText}>プライバシーポリシー</Text>
+        </Pressable>
+        <Pressable style={styles.legalButton} onPress={() => setLegalModal('terms')}>
+          <Feather name="file-text" size={14} color={palette.muted} />
+          <Text style={styles.legalButtonText}>利用規約</Text>
+        </Pressable>
+      </View>
     </ScrollView>
+
+    <Modal visible={legalModal !== null} animationType="slide" transparent onRequestClose={() => setLegalModal(null)}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{legalModal === 'privacy' ? 'プライバシーポリシー' : '利用規約'}</Text>
+            <Pressable style={styles.modalCloseButton} onPress={() => setLegalModal(null)}>
+              <Feather name="x" size={22} color={palette.ink} />
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.modalBody}>
+            {legalModal === 'privacy' ? <PrivacyPolicyContent styles={styles} /> : <TermsContent styles={styles} />}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
     </ImageBackground>
+  );
+}
+
+function PrivacyPolicyContent({ styles }: { styles: any }) {
+  return (
+    <>
+      <Text style={styles.modalText}>最終更新日: 2026年3月9日</Text>
+      <Text style={styles.modalText}>
+        「かいぬしとおはなし」（以下「本アプリ」）は、ユーザーのプライバシーを尊重し、個人情報の保護に努めます。
+      </Text>
+      <Text style={styles.modalSectionTitle}>1. 収集する情報</Text>
+      <Text style={styles.modalText}>
+        ・ペットのプロフィール情報（名前、種類、性格など）{'\n'}
+        ・会話データ{'\n'}
+        ・画像データ（ペットのアイコン）{'\n'}
+        ・利用状況データ（ログイン日時、会話回数）{'\n'}
+        ・広告パートナー（Google AdMob等）がデバイス識別子等を収集する場合があります
+      </Text>
+      <Text style={styles.modalSectionTitle}>2. 情報の利用目的</Text>
+      <Text style={styles.modalText}>
+        ・本アプリの機能提供{'\n'}
+        ・データのバックアップおよび引き継ぎ{'\n'}
+        ・AIによる会話応答の生成{'\n'}
+        ・サービスの改善{'\n'}
+        ・広告の表示
+      </Text>
+      <Text style={styles.modalSectionTitle}>3. 情報の第三者提供</Text>
+      <Text style={styles.modalText}>
+        ・AIサービスプロバイダー（OpenAI）に会話内容を送信します。個人を特定する情報は含まれません。{'\n'}
+        ・広告パートナーに匿名化されたデバイス情報を共有する場合があります。{'\n'}
+        ・法令に基づく場合を除き、第三者に提供しません。
+      </Text>
+      <Text style={styles.modalSectionTitle}>4. データの保管と削除</Text>
+      <Text style={styles.modalText}>
+        ・ログインしない場合、データは端末内にのみ保存されます。{'\n'}
+        ・ペットのデータは「お別れする」機能でいつでも削除できます。{'\n'}
+        ・サーバー上の全データ削除はお問い合わせください。
+      </Text>
+      <Text style={styles.modalSectionTitle}>5. お問い合わせ</Text>
+      <Text style={styles.modalText}>yuta.ramone1648+petapp@gmail.com</Text>
+    </>
+  );
+}
+
+function TermsContent({ styles }: { styles: any }) {
+  return (
+    <>
+      <Text style={styles.modalText}>最終更新日: 2026年3月9日</Text>
+      <Text style={styles.modalText}>
+        本利用規約は、「かいぬしとおはなし」（以下「本アプリ」）の利用条件を定めるものです。
+      </Text>
+      <Text style={styles.modalSectionTitle}>1. サービス概要</Text>
+      <Text style={styles.modalText}>
+        本アプリは、ユーザーが登録したペットのプロフィールに基づき、AIがペットになりきって会話を行うエンターテインメントアプリです。
+      </Text>
+      <Text style={styles.modalSectionTitle}>2. AIによる会話について</Text>
+      <Text style={styles.modalText}>
+        ・AIの応答は実際のペットの意思や感情を反映するものではありません。{'\n'}
+        ・医療・飼育に関する専門的なアドバイスとして使用しないでください。
+      </Text>
+      <Text style={styles.modalSectionTitle}>3. 料金プラン</Text>
+      <Text style={styles.modalText}>
+        ・Freeプラン: ペット1匹、1日5回おはなし{'\n'}
+        ・Plusプラン（月額480円）: ペット3匹、1日50回おはなし{'\n'}
+        ・アイテム: おやつ(+3回)、ごはん(+5回)、ごちそう(+10回)
+      </Text>
+      <Text style={styles.modalSectionTitle}>4. 免責事項</Text>
+      <Text style={styles.modalText}>
+        ・本アプリは「現状のまま」提供されます。{'\n'}
+        ・AIの応答に起因する損害について責任を負いません。{'\n'}
+        ・端末の故障等によるデータ消失について責任を負いません。
+      </Text>
+      <Text style={styles.modalSectionTitle}>5. お問い合わせ</Text>
+      <Text style={styles.modalText}>yuta.ramone1648+petapp@gmail.com</Text>
+    </>
   );
 }
 
