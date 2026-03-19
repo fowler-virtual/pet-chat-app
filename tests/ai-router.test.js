@@ -137,9 +137,11 @@ describe('getToneDirective', () => {
 });
 
 describe('createMockReply', () => {
-  it('includes speaker first person', () => {
+  it('returns greeting reply for greeting messages', () => {
     const reply = createMockReply(mugi, 'おはよう');
-    expect(reply).toContain('むぎ');
+    expect(reply).toContain('ママ');
+    expect(typeof reply).toBe('string');
+    expect(reply.length).toBeGreaterThan(0);
   });
 
   it('includes owner call', () => {
@@ -147,22 +149,15 @@ describe('createMockReply', () => {
     expect(reply).toContain('ママ');
   });
 
-  it('includes quoted owner message', () => {
-    const reply = createMockReply(mugi, 'おはよう');
-    expect(reply).toContain('「おはよう」');
-  });
-
-  it('handles empty message', () => {
-    const reply = createMockReply(mugi, '');
-    expect(reply).toContain('むぎ');
+  it('returns general reply for non-greeting messages', () => {
+    const reply = createMockReply(mugi, '今日は暑いね');
     expect(reply).toContain('ママ');
-    expect(reply).not.toContain('「」');
   });
 
-  it('uses pet name as speaker when firstPerson is empty', () => {
-    const pet = { ...mugi, firstPerson: '', nickname: '' };
-    const reply = createMockReply(pet, 'hi');
-    expect(reply).toMatch(/^むぎ/);
+  it('handles empty message as greeting', () => {
+    const reply = createMockReply(mugi, '');
+    expect(reply).toContain('ママ');
+    expect(reply.length).toBeGreaterThan(0);
   });
 });
 

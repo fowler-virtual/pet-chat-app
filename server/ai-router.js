@@ -270,19 +270,53 @@ async function maybeCallAnthropic(pet, message, history) {
   return text || null;
 }
 
-function createMockReply(pet, message) {
-  const lead = choose(getTimeLead(pet));
-  const speciesVoice = choose(getSpeciesVoice(pet));
-  const tail = choose([...getToneTail(pet), ...getPersonalityTail(pet)]);
-  const normalizedMessage = normalizeOwnerMessage(message);
-  const speaker = pet.firstPerson || pet.nickname || pet.name;
-  const ownerCall = pet.ownerCall || '飼い主さん';
+function getMockTemplates(pet, ownerCall) {
+  const bucket = getTimeBucket();
 
-  if (!normalizedMessage) {
-    return `${speaker}ね。${lead} ${ownerCall}に見つけてもらえて、${speciesVoice}${tail}`;
+  const greetingReplies = {
+    morning: [
+      `${ownerCall}、おはよう！今日も一緒にいられてうれしい。`,
+      `おはよう、${ownerCall}。今日はどんな一日になるかな？`,
+      `あ、${ownerCall}！おはよう。もうちょっと寝てたかったな〜。`,
+    ],
+    day: [
+      `${ownerCall}、おかえり！待ってたよ。`,
+      `あ、来てくれた！${ownerCall}に会えてうれしい。`,
+      `${ownerCall}！今日はどうだった？`,
+    ],
+    night: [
+      `${ownerCall}、おかえり！今日もおつかれさま。`,
+      `おかえり、${ownerCall}。ずっと待ってたんだよ。`,
+      `${ownerCall}、今日も一日がんばったね。えらいえらい。`,
+    ],
+  };
+
+  const generalReplies = [
+    `うんうん、${ownerCall}の話もっと聞きたいな。`,
+    `えへへ、${ownerCall}と話してると楽しい。`,
+    `なるほどね〜。${ownerCall}っておもしろいこと言うね。`,
+    `そうなんだ！もっと教えて。`,
+    `ふふ、${ownerCall}のそういうところ好きだな。`,
+    `わかるわかる！${ownerCall}の気持ち、伝わってくるよ。`,
+  ];
+
+  return { greetingReplies: greetingReplies[bucket], generalReplies };
+}
+
+function isGreeting(message) {
+  return /^(おはよ|ただいま|こんにち|こんばん|おかえり|やっほ|ひさしぶり|おーい)/u.test(message);
+}
+
+function createMockReply(pet, message) {
+  const normalizedMessage = normalizeOwnerMessage(message);
+  const ownerCall = pet.ownerCall || '飼い主さん';
+  const { greetingReplies, generalReplies } = getMockTemplates(pet, ownerCall);
+
+  if (!normalizedMessage || isGreeting(normalizedMessage)) {
+    return choose(greetingReplies);
   }
 
-  return `${speaker}ね。${lead} ${ownerCall}の「${normalizedMessage}」って聞いて、${speciesVoice}${tail}`;
+  return choose(generalReplies);
 }
 
 const HISTORY_LIMITS = {
