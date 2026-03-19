@@ -70,6 +70,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const newSelectedId = state.selectedPetId === action.petId
         ? (newPets[0]?.id ?? '')
         : state.selectedPetId;
+      if (newPets.length === 0) {
+        const fresh = createInitialState();
+        return {
+          ...fresh,
+          session: state.session,
+          isHydrating: false,
+          apiStatus: state.apiStatus,
+          showWelcome: true,
+        };
+      }
       return {
         ...state,
         pets: newPets,
@@ -77,7 +87,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         unreadCounts: restUnread,
         selectedPetId: newSelectedId,
         farewellTarget: null,
-        showWelcome: newPets.length === 0 ? true : state.showWelcome,
       };
     }
     case 'SET_SELECTED_PET_ID':

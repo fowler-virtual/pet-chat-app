@@ -94,15 +94,13 @@ describe('handleDeletePet', () => {
 });
 
 describe('handleUseItem', () => {
-  it('applies snack immediately without confirm modal', () => {
+  it('dispatches SET_USE_ITEM_CONFIRM for all item types', () => {
     const { actions, dispatched } = createTestActions({
-      inventory: { snack: 2, meal: 0, feast: 0 },
+      inventory: { snack: 2, meal: 3, feast: 0 },
     });
     actions.handleUseItem('snack');
-    const types = dispatched.map((d) => d.type);
-    expect(types).toContain('USE_INVENTORY_ITEM');
-    expect(types).toContain('SET_BONUS');
-    expect(types).not.toContain('SET_USE_ITEM_CONFIRM');
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]).toEqual({ type: 'SET_USE_ITEM_CONFIRM', itemType: 'snack' });
   });
 
   it('dispatches SET_USE_ITEM_CONFIRM for meal/feast', () => {

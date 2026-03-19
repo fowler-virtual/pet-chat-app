@@ -1,6 +1,6 @@
 import type { BootstrapResponse, ChatRequest, ChatResponse, PersonaPreview, PetProfile, SubscriptionPlan, UserSession } from '../types';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://pet-chat-app.onrender.com';
 
 export class ApiError extends Error {
   status: number;

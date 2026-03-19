@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -99,25 +99,30 @@ export default function WelcomeWizard() {
 
   async function handleComplete() {
     setIsCreating(true);
-    const id = `pet-${Date.now()}`;
-    const trimmedName = name.trim();
-    const pet: PetProfile = {
-      id,
-      name: trimmedName,
-      nickname: nickname.trim() || trimmedName,
-      species: resolvedSpecies,
-      gender: gender as PetProfile['gender'],
-      personality: personality.trim(),
-      firstPerson: resolvedFirstPerson || trimmedName,
-      ownerCall: resolvedOwnerCall || '飼い主さん',
-      tone: resolvedTone,
-      avatarUri: avatarUri || (avatarIcon ? `icon:${avatarIcon}` : ''),
-      sessionKey: `pet:${id}:main`,
-    };
-    const ok = await actions.handleAddPet(pet);
-    setIsCreating(false);
-    if (ok) {
-      dispatch({ type: 'SET_SHOW_WELCOME', value: false });
+    try {
+      const id = `pet-${Date.now()}`;
+      const trimmedName = name.trim();
+      const pet: PetProfile = {
+        id,
+        name: trimmedName,
+        nickname: nickname.trim() || trimmedName,
+        species: resolvedSpecies,
+        gender: gender as PetProfile['gender'],
+        personality: personality.trim(),
+        firstPerson: resolvedFirstPerson || trimmedName,
+        ownerCall: resolvedOwnerCall || '飼い主さん',
+        tone: resolvedTone,
+        avatarUri: avatarUri || (avatarIcon ? `icon:${avatarIcon}` : ''),
+        sessionKey: `pet:${id}:main`,
+      };
+      const ok = await actions.handleAddPet(pet);
+      if (ok) {
+        dispatch({ type: 'SET_SHOW_WELCOME', value: false });
+      }
+    } catch {
+      Alert.alert('エラー', 'おむかえに失敗しました。もう一度お試しください。');
+    } finally {
+      setIsCreating(false);
     }
   }
 
@@ -131,6 +136,11 @@ export default function WelcomeWizard() {
       paddingHorizontal: 32,
       paddingTop: 80,
       paddingBottom: 48,
+    },
+    wizardScreen: {
+      flex: 1,
+      paddingHorizontal: 32,
+      paddingTop: 24,
     },
     welcomeContent: {
       alignItems: 'center',
@@ -151,6 +161,7 @@ export default function WelcomeWizard() {
     welcomeActions: {
       gap: 12,
       alignItems: 'stretch',
+      paddingBottom: 16 + insets.bottom,
     },
     welcomeLoginLink: {
       paddingVertical: 8,
@@ -172,8 +183,12 @@ export default function WelcomeWizard() {
     },
     wizardBody: {
       flex: 1,
+    },
+    wizardBodyContent: {
+      flexGrow: 1,
       justifyContent: 'center',
       gap: 20,
+      paddingVertical: 16,
     },
     wizardQuestion: {
       fontSize: 20,
@@ -276,6 +291,7 @@ export default function WelcomeWizard() {
       flexDirection: 'row',
       borderRadius: 14,
       paddingVertical: 14,
+      paddingHorizontal: 20,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: palette.accentSoft,
@@ -283,6 +299,8 @@ export default function WelcomeWizard() {
     secondaryButtonText: {
       color: palette.accent,
       fontWeight: '600',
+      fontSize: 14,
+      flexShrink: 1,
     },
     disabledButton: {
       opacity: 0.4,
@@ -358,14 +376,14 @@ export default function WelcomeWizard() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.welcomeScreen, { paddingBottom: 32 + insets.bottom }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.wizardScreen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.wizardProgress}>
         <Text style={styles.wizardStep}>{step + 1} / {steps.length}</Text>
       </View>
 
-      <View style={styles.wizardBody}>
+      <ScrollView style={styles.wizardBody} contentContainerStyle={styles.wizardBodyContent} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never" keyboardShouldPersistTaps="handled">
         <Text style={styles.wizardQuestion}>{current?.question}</Text>
         {current?.hint && <Text style={styles.wizardHint}>{current.hint}</Text>}
 
@@ -491,7 +509,7 @@ export default function WelcomeWizard() {
                 style={styles.wizardInput}
                 value={firstPersonCustom}
                 onChangeText={setFirstPersonCustom}
-                placeholder={`例: ${name.trim() || 'むぎ'}、おいら`}
+                placeholder={`例: ${name.trim() || 'むぎ'}、${gender === '女の子' ? 'あたし' : gender === 'その他' ? '自分' : 'おいら'}`}
                 placeholderTextColor={palette.muted}
                 autoFocus
               />
@@ -550,7 +568,7 @@ export default function WelcomeWizard() {
             )}
           </>
         )}
-      </View>
+      </ScrollView>
 
       <View style={styles.welcomeActions}>
         {step < steps.length - 1 ? (

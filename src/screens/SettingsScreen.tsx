@@ -1,23 +1,28 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, ImageBackground, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
 import { useThemePalette, shadow, THEME_KEYS, THEME_PREVIEW_COLORS, type ThemeKey } from '../theme';
 import type { SubscriptionPlan } from '../types';
 import PetAvatar from '../components/PetAvatar';
 import NoticeBanner from '../components/NoticeBanner';
+import OfflineBanner from '../components/OfflineBanner';
 
 export default function SettingsScreen() {
   const palette = useThemePalette();
   const { state, dispatch, actions } = useAppContext();
-  const { session, pets, selectedPetId, notice, isPlanUpdating, transferCodeInput, issuedTransferCode, isAuthenticating } = state;
+  const { session, pets, selectedPetId, notice, isPlanUpdating, transferCodeInput, issuedTransferCode, isAuthenticating, apiStatus } = state;
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const currentPlan = session?.plan ?? 'free';
   const petLimit = currentPlan === 'plus' ? 3 : 1;
   const petLimitReached = pets.length >= petLimit;
+  const scrollRef = useRef<ScrollView>(null);
+  useFocusEffect(useCallback(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []));
 
   const styles = useMemo(() => StyleSheet.create({
     background: {
@@ -156,15 +161,16 @@ export default function SettingsScreen() {
       fontSize: 12,
     },
     petDeleteButton: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
       borderRadius: 10,
       backgroundColor: palette.canvas,
-      marginLeft: 8,
+      marginLeft: 4,
+      flexShrink: 0,
     },
     petDeleteButtonText: {
       color: palette.accent,
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '600',
     },
     input: {
@@ -244,16 +250,18 @@ export default function SettingsScreen() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: 4,
       paddingVertical: 14,
+      paddingHorizontal: 8,
       borderRadius: 14,
       backgroundColor: palette.surfaceAlpha,
       ...shadow.sm,
     },
     legalButtonText: {
-      fontSize: 13,
+      fontSize: 11,
       color: palette.text,
       fontWeight: '600',
+      flexShrink: 1,
     },
     modalOverlay: {
       flex: 1,
@@ -320,8 +328,9 @@ export default function SettingsScreen() {
 
   return (
     <ImageBackground source={require('../../assets/ui/background_settings.png')} style={styles.background} resizeMode="cover">
-    <ScrollView contentContainerStyle={[styles.screenContent, { paddingBottom: 120 + insets.bottom }]} showsVerticalScrollIndicator={false}>
+    <ScrollView ref={scrollRef} contentContainerStyle={[styles.screenContent, { paddingBottom: 120 + insets.bottom }]} showsVerticalScrollIndicator={false}>
       <NoticeBanner notice={notice} />
+      <OfflineBanner status={apiStatus} onRetry={() => void actions.retryConnection()} />
 
       <View style={styles.panelCard}>
         <Text style={styles.panelTitle}>現在のプラン</Text>

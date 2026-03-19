@@ -163,10 +163,11 @@ export function createAppActions(
     const { session } = getState();
     dispatch({ type: 'SET_NOTICE', notice: null });
 
+    const { createInitialPetLine } = await import('../lib/petPersona');
     const helloMessage: ChatMessage = {
       id: `hello-${Date.now()}`,
       sender: 'pet',
-      text: `${pet.name}だよ。これからいっぱい話そうね。`,
+      text: createInitialPetLine(pet),
       time: timeNow(),
     };
 
@@ -174,7 +175,7 @@ export function createAppActions(
       try {
         const result = await createPet({ pet }, session.authToken);
         const normalized = normalizePetProfile(result.pet);
-        dispatch({ type: 'ADD_PET', pet: normalized, messages: [{ ...helloMessage, text: `${normalized.name}だよ。これからいっぱい話そうね。` }] });
+        dispatch({ type: 'ADD_PET', pet: normalized, messages: [{ ...helloMessage, text: createInitialPetLine(normalized) }] });
         dispatch({ type: 'SET_NOTICE', notice: `${normalized.name} を登録しました。` });
         dispatch({ type: 'SET_API_STATUS', status: 'online' });
         return true;
@@ -412,11 +413,7 @@ export function createAppActions(
     const { inventory } = getState();
     if (inventory[itemType] <= 0) return;
 
-    if (itemType === 'snack') {
-      applyItemUse(itemType);
-    } else {
-      dispatch({ type: 'SET_USE_ITEM_CONFIRM', itemType });
-    }
+    dispatch({ type: 'SET_USE_ITEM_CONFIRM', itemType });
   }
 
   function confirmUseItem() {

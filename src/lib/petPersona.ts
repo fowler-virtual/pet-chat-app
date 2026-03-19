@@ -28,51 +28,88 @@ function getSpeciesVoice(pet: PetProfile): string[] {
 
 function getTimeLead(pet: PetProfile): string[] {
   const bucket = getTimeBucket();
+  const name = pet.name;
 
   if (bucket === 'morning') {
-    return [`${pet.name}、もう起きてたよ。`, '朝いちばんに見つけてくれてうれしい。', 'おはようって先に言いたかった。'];
+    return [
+      `おはよ。${name}、もう起きてたよ。`,
+      '朝いちばんに来てくれた！',
+      'おはようって先に言いたかったのに。',
+      'ふぁ〜、まだちょっとねむい…。',
+      '今日も会えてうれしい！',
+    ];
   }
 
   if (bucket === 'day') {
-    return ['今ちょうど気にしてたところ。', 'さっきからちょっと会いたかった。', '今きてくれたの、うれしい。'];
+    return [
+      'あ、来てくれた！',
+      'ちょうどひまだったんだ。',
+      'さっきからちょっと会いたかった。',
+      '今日はいい天気だね。',
+      'なにして遊ぶ？',
+      'おひるねしてたところ。',
+    ];
   }
 
-  return ['今日はもう来ないかと思った。', '夜に見つけてくれると安心する。', 'そろそろ声が聞きたいと思ってた。'];
+  return [
+    'もう来ないかと思った…。',
+    '夜は静かでちょっとさみしかった。',
+    'おかえり！待ってたよ。',
+    'そろそろ声が聞きたかった。',
+    '今日もおつかれさま。',
+    'ねむくない？無理しないでね。',
+  ];
 }
 
 function getToneTail(pet: PetProfile): string[] {
   switch (pet.tone) {
     case '敬語':
-      return ['そばにいてくださるとうれしいです。', '見つけてくれてありがとうございます。'];
+      return ['お話できてうれしいです。', 'よろしくお願いしますね。', 'そばにいてくださるとうれしいです。'];
     case 'やさしい':
-      return ['無理しないで、ゆっくり話してね。', '来てくれるだけで安心するよ。'];
+      return ['ゆっくりしていってね。', '来てくれるだけでうれしいよ。', '無理しないでね。'];
     case 'ツンデレ':
-      return ['べつに待ってたわけじゃないけど、そのままいて。', 'さみしくなんかなかったけど、来てくれてよかった。'];
+      return ['べつに待ってたわけじゃないけど。', 'ふん、来たの。', '…まあ、いてもいいけど。'];
     case 'あまえんぼ':
-      return ['もっとかまってくれたら、すごくうれしい。', 'このままずっとそばにいてほしいな。'];
+      return ['なでなでしてー！', 'かまってかまって！', 'もっとそばにいて！'];
+    case 'ため口':
+      return ['ひまだったんだよね。', 'なんか話そうよ。', 'よっ！'];
+    case '関西弁':
+      return ['ほな話そか！', 'ひまやったんよ〜。', 'おっ、来たやん！'];
     default:
-      return ['このまま話したい気分。', '来てくれてうれしい。'];
+      return ['話したい気分！', '来てくれてうれしい。'];
   }
 }
 
 function getPersonalityTail(pet: PetProfile): string[] {
+  const tails: string[] = [];
+
   if (pet.personality.includes('ツン')) {
-    return ['べつにさみしくなんかなかったけど、来てくれてよかった。', '待ってたわけじゃないけど、そのままいて。'];
+    tails.push('…別にうれしくなんかないけど。', '気が向いたから相手してあげる。');
   }
-
   if (pet.personality.includes('甘え')) {
-    return ['もう少しかまってくれたら、すごくうれしい。', 'このままそばにいてくれたら安心する。'];
+    tails.push('いっぱいかまって！', 'ずっとそばにいてほしいな。');
   }
-
   if (pet.personality.includes('元気')) {
-    return ['このままいっぱい話したい気分。', 'まだまだ遊べそうなくらい元気。'];
+    tails.push('今日も元気いっぱい！', 'いっぱい遊ぼう！');
+  }
+  if (pet.personality.includes('おっとり') || pet.personality.includes('のんびり')) {
+    tails.push('今日ものんびりいこうね。', 'ゆっくりでいいよ。');
+  }
+  if (pet.personality.includes('人見知り') || pet.personality.includes('さみし')) {
+    tails.push('来てくれてほっとした。', 'ひとりはちょっとさみしかった。');
+  }
+  if (pet.personality.includes('好奇心') || pet.personality.includes('いたずら')) {
+    tails.push('なにかおもしろいことない？', '今日はなにして遊ぶ？');
+  }
+  if (pet.personality.includes('食いしん坊') || pet.personality.includes('くいしんぼ')) {
+    tails.push('おやつまだかな？', 'おなかすいちゃった。');
   }
 
-  if (pet.personality.includes('さみし')) {
-    return ['来てくれたから、ちょっとほっとした。', 'ひとりじゃなくなった感じがして安心した。'];
+  if (tails.length === 0) {
+    tails.push('お話しようよ！', '今日はどんな日？');
   }
 
-  return ['そのまま話してくれたらうれしい。', '少しだけでも声をかけてもらえると満たされる。'];
+  return tails;
 }
 
 function choose<T>(items: T[]): T {

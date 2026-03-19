@@ -19,8 +19,7 @@ export default React.memo(function OfflineBanner({ status, onRetry }: Props) {
       borderRadius: 12,
       paddingHorizontal: 14,
       paddingVertical: 10,
-      marginHorizontal: 20,
-      marginTop: 8,
+      marginBottom: 12,
     },
     text: {
       flex: 1,

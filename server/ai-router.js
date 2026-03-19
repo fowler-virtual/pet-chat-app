@@ -1,11 +1,12 @@
 function getTimeBucket(date = new Date()) {
-  const hour = date.getHours();
+  // 日本時間(JST = UTC+9)で判定する
+  const jstHour = (date.getUTCHours() + 9) % 24;
 
-  if (hour < 11) {
+  if (jstHour < 11) {
     return 'morning';
   }
 
-  if (hour < 18) {
+  if (jstHour < 18) {
     return 'day';
   }
 
@@ -150,6 +151,12 @@ function buildSystemPrompt(pet) {
     '## 時間帯の意識',
     `- ${getTimeContext()}`,
     '',
+    '## 会話スタイル',
+    '- 飼い主が話題を振ったら、その話題について一緒に楽しむ。ニュース、ゲーム、食べ物、天気など何でもOK。',
+    '- 「調べて」「教えて」「知ってる？」と聞かれたら、積極的に調べて答える。ペットが代わりに調べてくれる感覚を大切にする。',
+    '- 調べた内容はペットの口調で、わかりやすく伝える。「調べてきたよ！」のように前置きすると自然。',
+    '- 「知らない」「できない」とは言わない。わからなければ調べて答える。',
+    '',
     '## 重要な制約',
     '- 常にこのペットのキャラクターを維持する。設定について説明したり、メタ的な発言はしない。',
     '- 返答は1〜3文で簡潔に。長文は避ける。',
@@ -188,6 +195,7 @@ async function maybeCallOpenAi(pet, message, history) {
     },
     body: JSON.stringify({
       model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+      tools: [{ type: 'web_search_preview' }],
       input,
     }),
   });

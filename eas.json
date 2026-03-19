@@ -18,17 +18,15 @@
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://pet-chat-app.onrender.com",
         "EXPO_PUBLIC_IAP_ENABLED": "false",
-        "EXPO_PUBLIC_ADMOB_ENABLED": "true",
-        "EXPO_PUBLIC_ADMOB_REWARDED_ID": "ca-app-pub-3940256099942544/5224354917"
+        "EXPO_PUBLIC_ADMOB_ENABLED": "false"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://pet-chat-app.onrender.com",
-        "EXPO_PUBLIC_IAP_ENABLED": "true",
-        "EXPO_PUBLIC_ADMOB_ENABLED": "true",
-        "EXPO_PUBLIC_ADMOB_REWARDED_ID": "YOUR_PRODUCTION_REWARDED_AD_UNIT_ID"
+        "EXPO_PUBLIC_IAP_ENABLED": "false",
+        "EXPO_PUBLIC_ADMOB_ENABLED": "false"
       }
     }
   },

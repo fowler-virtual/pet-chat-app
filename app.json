@@ -30,6 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFF8F0"
       },
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.RECORD_AUDIO"
@@ -39,14 +40,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-image-picker",
-      [
-        "react-native-google-mobile-ads",
-        {
-          "android_app_id": "ca-app-pub-3940256099942544~3347511713",
-          "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
-        }
-      ]
+      "expo-image-picker"
     ],
     "extra": {
       "eas": {

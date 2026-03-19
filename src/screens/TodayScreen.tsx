@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 // @ts-expect-error — vendor type declarations missing in @expo/vector-icons build
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,11 @@ export default function TodayScreen() {
   const isExhausted = remainingMessages <= 0;
   const hasAnyItem = inventory.snack > 0 || inventory.meal > 0 || inventory.feast > 0;
   const navigation = useNavigation<any>();
+
+  const scrollRef = useRef<ScrollView>(null);
+  useFocusEffect(useCallback(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []));
 
   const featuredPet = pets.length > 0 ? pets[0] : null;
 
@@ -100,7 +105,6 @@ export default function TodayScreen() {
       fontSize: 16,
       lineHeight: 26,
       color: palette.ink,
-      textAlign: 'center',
     },
     talkBtn: {
       flexDirection: 'row',
@@ -240,6 +244,7 @@ export default function TodayScreen() {
       backgroundColor: palette.chip,
     },
     adBtnText: {
+      flex: 1,
       color: '#FFFFFF',
       fontWeight: '700',
       fontSize: 14,
@@ -250,6 +255,7 @@ export default function TodayScreen() {
     adBtnSub: {
       color: 'rgba(255,255,255,0.7)',
       fontSize: 12,
+      flexShrink: 0,
     },
     foodNotice: {
       flexDirection: 'row',
@@ -257,10 +263,11 @@ export default function TodayScreen() {
       gap: 6,
       backgroundColor: palette.accentSoft,
       borderRadius: 10,
-      paddingVertical: 8,
+      paddingVertical: 10,
       paddingHorizontal: 12,
     },
     foodNoticeText: {
+      flex: 1,
       fontSize: 13,
       color: palette.accent,
       fontWeight: '600',
@@ -281,7 +288,7 @@ export default function TodayScreen() {
 
   return (
     <ImageBackground source={require('../../assets/ui/background_home.png')} style={styles.bg} resizeMode="cover">
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
         <NoticeBanner notice={isFoodNotice ? null : notice} />
         <OfflineBanner status={apiStatus} onRetry={() => void actions.retryConnection()} />
 
@@ -410,9 +417,8 @@ export default function TodayScreen() {
                 <Text style={[styles.adBtnText, (adExhausted || isAdLoading) && styles.adBtnTextDisabled]}>
                   {isAdLoading ? '読み込み中...'
                     : adExhausted ? (isPlusUser ? '今日はすべてもらいました' : '今日の動画はすべて見ました')
-                    : isPlusUser ? 'たべものをもらう' : '動画を見てたべものをもらう'}
+                    : isPlusUser ? 'たべものをもらう' : '動画を見ておやつをもらう'}
                 </Text>
-                <View style={{ flex: 1 }} />
                 {!adExhausted && !isAdLoading && (
                   <Text style={styles.adBtnSub}>あと{adRemaining}回</Text>
                 )}

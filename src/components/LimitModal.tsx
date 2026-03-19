@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { AdRewardState, ItemInventory, ItemType, SubscriptionPlan } from '../types';
 import { AD_VIEW_LIMIT, ITEM_BONUS } from '../types';
 import { useThemePalette, shadow } from '../theme';
 import { getTodayString } from '../lib/dateUtils';
-import { ITEM_ICON_SOURCE } from '../data/assets';
+
+const ITEM_EMOJI: Record<ItemType, string> = { snack: '🍪', meal: '🍚', feast: '🍽' };
 
 const ITEM_LABELS: Record<ItemType, string> = { snack: 'おやつ', meal: 'ごはん', feast: 'ごちそう' };
 
@@ -108,9 +109,8 @@ export default function LimitModal({
       borderRadius: 14,
       paddingVertical: 14,
     },
-    itemIconImg: {
-      width: 36,
-      height: 36,
+    itemEmoji: {
+      fontSize: 28,
     },
     itemButtonDisabled: {
       opacity: 0.4,
@@ -209,7 +209,7 @@ export default function LimitModal({
                       onPress={() => handleUseItemLocal(type)}
                       disabled={disabled}
                     >
-                      <Image source={ITEM_ICON_SOURCE[type]} style={styles.itemIconImg} />
+                      <Text style={styles.itemEmoji}>{ITEM_EMOJI[type]}</Text>
                       <Text style={[styles.itemLabel, disabled && styles.itemLabelDisabled]}>{label}</Text>
                       <Text style={[styles.itemBonus, disabled && styles.itemBonusDisabled]}>+{bonus}回</Text>
                       <Text style={[styles.itemStock, disabled && styles.itemStockDisabled]}>×{count}</Text>

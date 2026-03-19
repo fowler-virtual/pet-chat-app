@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useThemePalette, shadow } from '../theme';
 import { ITEM_BONUS } from '../types';
 import type { ItemType, ItemInventory } from '../types';
-import { ITEM_ICON_SOURCE } from '../data/assets';
 
 const ITEM_LABEL: Record<ItemType, string> = {
   snack: 'おやつ',
@@ -35,9 +34,8 @@ export default function UseItemConfirmModal({ itemType, inventory, onConfirm, on
       gap: 14,
       ...shadow.lg,
     },
-    confirmIcon: {
-      width: 64,
-      height: 64,
+    confirmEmoji: {
+      fontSize: 48,
     },
     title: {
       fontSize: 18,
@@ -80,7 +78,7 @@ export default function UseItemConfirmModal({ itemType, inventory, onConfirm, on
         <Pressable style={styles.modal} onPress={() => {}}>
           {itemType && (
             <>
-              <Image source={ITEM_ICON_SOURCE[itemType]} style={styles.confirmIcon} />
+              <Text style={styles.confirmEmoji}>{itemType === 'snack' ? '🍪' : itemType === 'meal' ? '🍚' : '🍽'}</Text>
               <Text style={styles.title}>{ITEM_LABEL[itemType]}を使いますか？</Text>
               <Text style={styles.message}>
                 おはなしできる回数が{ITEM_BONUS[itemType]}回増えます{'\n'}（のこり {inventory[itemType]}個 → {inventory[itemType] - 1}個）

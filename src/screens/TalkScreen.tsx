@@ -86,7 +86,6 @@ export default function TalkScreen() {
       flex: 1,
       paddingHorizontal: 16,
       paddingTop: 20,
-      paddingBottom: 108,
       gap: 0,
     },
     resendBanner: {
@@ -230,9 +229,9 @@ export default function TalkScreen() {
   return (
     <ImageBackground source={require('../../assets/ui/background_chat.png')} style={styles.background} resizeMode="cover">
     <KeyboardAvoidingView
-      style={[styles.chatScreen, { paddingBottom: 86 + insets.bottom }]}
+      style={[styles.chatScreen, { paddingBottom: 90 + insets.bottom }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 + insets.bottom : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 + insets.bottom : 0}
     >
       <NoticeBanner notice={notice} />
       <OfflineBanner status={apiStatus} onRetry={() => void actions.retryConnection()} />
