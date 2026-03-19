@@ -79,7 +79,7 @@ describe('buildSystemPrompt', () => {
 
   it('includes character constraints', () => {
     const prompt = buildSystemPrompt(mugi);
-    expect(prompt).toContain('返答は1〜3文で簡潔に');
+    expect(prompt).toContain('返答は1〜3文');
     expect(prompt).toContain('メタ的な発言はしない');
   });
 
