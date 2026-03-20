@@ -317,7 +317,7 @@ export function createAppActions(
           // ユーザーキャンセル: 静かに終了
           return;
         }
-        dispatch({ type: 'SET_NOTICE', notice: '購入処理に失敗しました。' });
+        dispatch({ type: 'SET_NOTICE', notice: `購入処理に失敗しました。(${purchaseResult.reason})` });
         return;
       }
 
