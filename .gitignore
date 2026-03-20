@@ -10,6 +10,12 @@ yarn-error.log*
 .env.*
 *.key
 google-play-key.json
+*.jks
+android/keystore.properties
+
+# Build artifacts
+*.apk
+*.aab
 
 # Server data (development)
 server/data/db.json
