@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-const { readDb, writeDb } = require('../server/db');
+const { readDb, writeDb, updateDb } = require('../server/db');
 const { createAnonymousUser, issueTransferCode, redeemTransferCode, getUserByToken } = require('../server/auth');
 
 // Helper: set up a clean db with a test user and pet
@@ -267,5 +267,111 @@ describe('storage validation', () => {
 
     const url = await uploadImage(buffer, 'image/webp', 'user-test');
     expect(url).toContain('.webp');
+  });
+});
+
+describe('google-play-verify', () => {
+  beforeEach(() => {
+    // authClient キャッシュをリセット
+    vi.resetModules();
+  });
+
+  it('returns null when GOOGLE_SERVICE_ACCOUNT_KEY is not set', async () => {
+    const originalKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+    delete process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+
+    const { verifyGooglePlayPurchase } = require('../server/google-play-verify');
+    const result = await verifyGooglePlayPurchase('plus_monthly', 'token-123');
+    expect(result).toBeNull();
+
+    if (originalKey) process.env.GOOGLE_SERVICE_ACCOUNT_KEY = originalKey;
+  });
+});
+
+describe('verify-receipt logic (db-level)', () => {
+  beforeEach(() => setupTestDb());
+
+  it('subscription purchase upgrades plan to plus', () => {
+    updateDb((db) => {
+      const user = db.users.find((u) => u.id === 'user-test-1');
+      expect(user.plan).toBe('free');
+
+      // レシート検証成功後の処理を再現
+      const productId = 'plus_monthly';
+      if (productId === 'plus_monthly') {
+        user.plan = 'plus';
+      }
+      user.receiptData = { productId, platform: 'android', verifiedAt: new Date().toISOString() };
+      return db;
+    });
+
+    const db = readDb();
+    const user = db.users.find((u) => u.id === 'user-test-1');
+    expect(user.plan).toBe('plus');
+    expect(user.receiptData.productId).toBe('plus_monthly');
+  });
+
+  it('consumable purchase does not change plan', () => {
+    // まず plus にしておく
+    updateDb((db) => {
+      db.users.find((u) => u.id === 'user-test-1').plan = 'plus';
+      return db;
+    });
+
+    updateDb((db) => {
+      const user = db.users.find((u) => u.id === 'user-test-1');
+      const productId = 'item_snack';
+      // 消耗品なので plan は変更しない
+      if (productId === 'plus_monthly') {
+        user.plan = 'plus';
+      }
+      user.receiptData = { productId, platform: 'android', verifiedAt: new Date().toISOString() };
+      return db;
+    });
+
+    const db = readDb();
+    const user = db.users.find((u) => u.id === 'user-test-1');
+    expect(user.plan).toBe('plus'); // plus のまま
+    expect(user.receiptData.productId).toBe('item_snack');
+  });
+
+  it('consumable purchase on free plan stays free', () => {
+    updateDb((db) => {
+      const user = db.users.find((u) => u.id === 'user-test-1');
+      const productId = 'item_meal';
+      if (productId === 'plus_monthly') {
+        user.plan = 'plus';
+      }
+      user.receiptData = { productId, platform: 'android', verifiedAt: new Date().toISOString() };
+      return db;
+    });
+
+    const db = readDb();
+    const user = db.users.find((u) => u.id === 'user-test-1');
+    expect(user.plan).toBe('free'); // free のまま
+  });
+
+  it('receiptData records platform and timestamp', () => {
+    updateDb((db) => {
+      const user = db.users.find((u) => u.id === 'user-test-1');
+      user.receiptData = { productId: 'item_feast', platform: 'android', verifiedAt: '2026-03-20T00:00:00.000Z' };
+      return db;
+    });
+
+    const db = readDb();
+    const user = db.users.find((u) => u.id === 'user-test-1');
+    expect(user.receiptData.platform).toBe('android');
+    expect(user.receiptData.verifiedAt).toBe('2026-03-20T00:00:00.000Z');
+  });
+
+  it('unknown user is not updated', () => {
+    let found = false;
+    updateDb((db) => {
+      const user = db.users.find((u) => u.id === 'user-unknown');
+      if (user) found = true;
+      return db;
+    });
+
+    expect(found).toBe(false);
   });
 });

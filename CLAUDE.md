@@ -142,5 +142,5 @@ tests/
 
 - テストは `tests/` ディレクトリに配置
 - Vitest を使用
-- 現在 192 tests passing (8 test files)
+- 現在 198 tests passing (8 test files)
 - `npx vitest run` で全テスト実行、`npx vitest` でwatch mode
