@@ -9,7 +9,23 @@ Expo (React Native Web) + Express backend.
 npm install              # 依存インストール
 npx expo start --web     # フロントエンド起動
 node server/index.js     # バックエンド起動
-npx vitest run           # テスト実行 (192 tests, 8 files)
+npx vitest run           # テスト実行 (198 tests, 8 files)
+```
+
+### Android ローカルビルド
+
+```bash
+# prebuild (環境変数を渡す)
+EXPO_PUBLIC_IAP_ENABLED=true EXPO_PUBLIC_API_BASE_URL=https://pet-chat-app.onrender.com npx expo prebuild --platform android --clean
+
+# prebuild 後に build.gradle の versionCode・署名設定を手動修正する必要あり
+# 署名鍵: android/app/upload-keystore.jks (EAS からダウンロード)
+
+# AAB ビルド (Play Console アップロード用)
+cd android && ./gradlew bundleRelease
+
+# APK ビルド (直接インストール用)
+cd android && ./gradlew assembleRelease
 ```
 
 ## Environment Variables (本番用)
@@ -18,7 +34,8 @@ npx vitest run           # テスト実行 (192 tests, 8 files)
 |---|---|
 | `DB_DRIVER` | DB切替 (`json` / `postgres`) |
 | `STORAGE_DRIVER` | 画像ストレージ切替 (`local` / `s3`) |
-| `GOOGLE_SERVICE_ACCOUNT_KEY` | Google Play レシート検証用サービスアカウント JSON キーのパス |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Google Play レシート検証用サービスアカウント JSON キーのパス (ローカル用) |
+| `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` | 同上の JSON 文字列 (Render 等ホスティング用、どちらか一方でOK) |
 | `GOOGLE_PLAY_PACKAGE_NAME` | Android パッケージ名 (`com.yuta.petchatapp`) |
 | `EXPO_PUBLIC_IAP_ENABLED` | クライアント側 IAP 有効化 (`true` で実課金) |
 | `EXPO_PUBLIC_API_BASE_URL` | API ベース URL |
@@ -40,7 +57,8 @@ npx vitest run           # テスト実行 (192 tests, 8 files)
 - サーバーDB: 開発は **JSON file** (`DB_DRIVER=json`)、本番は **PostgreSQL** (`DB_DRIVER=postgres`)
 - 画像ストレージ: 開発は **ローカルファイル** (`STORAGE_DRIVER=local`)、本番は **S3** (`STORAGE_DRIVER=s3`)
 - 課金: Google Play レシート検証は `googleapis` で実装済み。`GOOGLE_SERVICE_ACCOUNT_KEY` 未設定時はモックモード
-- Android ネイティブプロジェクトは `android/` に配置（EAS Build 用）
+- クライアント IAP: **react-native-iap v14** を使用（purchaseUpdatedListener ベース）
+- Android ネイティブプロジェクトは `android/` に配置（EAS Build / ローカルビルド用）
 
 ## Code Style
 
