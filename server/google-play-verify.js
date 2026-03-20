@@ -4,13 +4,22 @@ let authClient = null;
 
 function getAuthClient() {
   if (authClient) return authClient;
-  const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-  if (!keyFile) return null;
 
-  authClient = new google.auth.GoogleAuth({
-    keyFile,
-    scopes: ['https://www.googleapis.com/auth/androidpublisher'],
-  });
+  const scopes = ['https://www.googleapis.com/auth/androidpublisher'];
+  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_JSON;
+  const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+
+  if (keyJson) {
+    // Render 等: 環境変数に JSON 文字列を直接設定
+    const credentials = JSON.parse(keyJson);
+    authClient = new google.auth.GoogleAuth({ credentials, scopes });
+  } else if (keyFile) {
+    // ローカル: ファイルパスを指定
+    authClient = new google.auth.GoogleAuth({ keyFile, scopes });
+  } else {
+    return null;
+  }
+
   return authClient;
 }
 
