@@ -8,6 +8,7 @@ const { createAnonymousUser, issueTransferCode, redeemTransferCode, requireAuth,
 const { readDb, updateDb } = require('./db');
 const { generatePetReply } = require('./ai-router');
 const { uploadImage, deleteImage, UPLOAD_DIR } = require('./storage');
+const { verifyGooglePlayPurchase } = require('./google-play-verify');
 const path = require('path');
 
 const app = express();
@@ -517,36 +518,49 @@ app.post('/api/billing/subscribe', requireAuth, (req, res) => {
 /**
  * レシート検証エンドポイント
  *
- * 本番環境では Apple / Google のサーバーにレシートを送って検証する。
- * 開発環境では receipt が存在すれば有効とみなす（mock）。
- *
- * 本番化する際の手順:
- * 1. Apple: App Store Server API でレシートを検証
- * 2. Google: Google Play Developer API で purchaseToken を検証
- * 3. 検証結果に応じて plan を更新
+ * Android: Google Play Developer API で purchaseToken を検証
+ * iOS: 未実装（モックモード）
+ * 開発環境: GOOGLE_SERVICE_ACCOUNT_KEY 未設定ならモックモード
  */
-app.post('/api/billing/verify-receipt', requireAuth, (req, res) => {
+app.post('/api/billing/verify-receipt', requireAuth, async (req, res) => {
   const { productId, receipt, platform } = req.body ?? {};
   if (!productId || !receipt) {
     return res.status(400).json({ error: 'invalid_receipt_payload' });
   }
 
-  // TODO: 本番では Apple / Google のサーバーにレシートを検証
-  // 開発環境では receipt が存在すれば有効とみなす
-  const isValid = Boolean(receipt);
+  let isValid = false;
+
+  if (platform === 'android') {
+    try {
+      const result = await verifyGooglePlayPurchase(productId, receipt);
+      if (result === null) {
+        // モックモード（認証情報未設定）
+        isValid = Boolean(receipt);
+      } else {
+        isValid = result.valid;
+      }
+    } catch (err) {
+      console.error('Google Play verification error:', err.message);
+      return res.status(502).json({ error: 'verification_service_error' });
+    }
+  } else {
+    // iOS / その他: モックモード（将来対応）
+    isValid = Boolean(receipt);
+  }
 
   if (!isValid) {
     return res.status(400).json({ error: 'receipt_invalid' });
   }
 
-  const plan = productId === 'plus_monthly' ? 'plus' : 'free';
   let updatedUser = null;
 
   updateDb((db) => {
     const user = db.users.find((item) => item.id === req.user.id);
     if (!user) return db;
 
-    user.plan = plan;
+    if (productId === 'plus_monthly') {
+      user.plan = 'plus';
+    }
     user.receiptData = { productId, platform: platform || 'unknown', verifiedAt: new Date().toISOString() };
     updatedUser = {
       id: user.id,
@@ -563,7 +577,7 @@ app.post('/api/billing/verify-receipt', requireAuth, (req, res) => {
   return res.json({
     session: updatedUser,
     verified: true,
-    plan,
+    plan: updatedUser.plan,
   });
 });
 
