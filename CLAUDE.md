@@ -9,8 +9,22 @@ Expo (React Native Web) + Express backend.
 npm install              # 依存インストール
 npx expo start --web     # フロントエンド起動
 node server/index.js     # バックエンド起動
-npx vitest run           # テスト実行 (193 tests, 8 files)
+npx vitest run           # テスト実行 (192 tests, 8 files)
 ```
+
+## Environment Variables (本番用)
+
+| 変数 | 用途 |
+|---|---|
+| `DB_DRIVER` | DB切替 (`json` / `postgres`) |
+| `STORAGE_DRIVER` | 画像ストレージ切替 (`local` / `s3`) |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Google Play レシート検証用サービスアカウント JSON キーのパス |
+| `GOOGLE_PLAY_PACKAGE_NAME` | Android パッケージ名 (`com.yuta.petchatapp`) |
+| `EXPO_PUBLIC_IAP_ENABLED` | クライアント側 IAP 有効化 (`true` で実課金) |
+| `EXPO_PUBLIC_API_BASE_URL` | API ベース URL |
+| `CORS_ORIGINS` | 許可オリジン (カンマ区切り) |
+
+未設定の変数は開発用デフォルト（モック/ローカル）で動作する。
 
 ## Architecture
 
@@ -25,6 +39,8 @@ npx vitest run           # テスト実行 (193 tests, 8 files)
 - フロントエンドのデータは **AsyncStorage** に保存 (key: `pet-chat-app-state`)
 - サーバーDB: 開発は **JSON file** (`DB_DRIVER=json`)、本番は **PostgreSQL** (`DB_DRIVER=postgres`)
 - 画像ストレージ: 開発は **ローカルファイル** (`STORAGE_DRIVER=local`)、本番は **S3** (`STORAGE_DRIVER=s3`)
+- 課金: Google Play レシート検証は `googleapis` で実装済み。`GOOGLE_SERVICE_ACCOUNT_KEY` 未設定時はモックモード
+- Android ネイティブプロジェクトは `android/` に配置（EAS Build 用）
 
 ## Code Style
 
@@ -90,10 +106,16 @@ src/
   data/
     constants.ts            # 選択肢定数 (種類, 口調, アイコン等)
     mock.ts                 # モックデータ
+android/                    # Android ネイティブプロジェクト (EAS Build用)
+assets/
+  bubble-icon.png           # アプリアイコン素材
+scripts/
+  screenshots.mjs           # ストア用スクリーンショット生成 (Playwright)
 server/
   index.js                  # Express エントリーポイント
   ai-router.js              # AI API ルーティング
   auth.js                   # 認証
+  google-play-verify.js     # Google Play レシート検証 (googleapis)
   db.js                     # DB抽象レイヤー (JSON/PostgreSQL切替)
   db-postgres.js            # PostgreSQLアダプター
   storage.js                # 画像ストレージ (local/S3切替)
@@ -120,5 +142,5 @@ tests/
 
 - テストは `tests/` ディレクトリに配置
 - Vitest を使用
-- 現在 193 tests passing (8 test files)
+- 現在 192 tests passing (8 test files)
 - `npx vitest run` で全テスト実行、`npx vitest` でwatch mode
