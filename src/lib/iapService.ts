@@ -1,11 +1,11 @@
 /**
  * IAP Service — アプリ内課金を管理
  *
- * 本番環境では expo-in-app-purchases または react-native-iap を使用。
+ * 本番環境では react-native-iap を使用。
  * 開発環境では mock モードで即座に購入成功を返す。
  *
  * 本番化する際の手順:
- * 1. `npx expo install expo-in-app-purchases`
+ * 1. `npm install react-native-iap`
  * 2. App Store Connect / Google Play Console で以下を登録:
  *    - サブスクリプション: "plus_monthly" (480円/月)
  *    - 消耗型アイテム: "item_snack", "item_meal", "item_feast"
@@ -26,7 +26,7 @@ export const PRODUCT_IDS = {
 } as const;
 
 export const ITEM_PRICES: Record<ItemType, string> = {
-  snack: '¥120',
+  snack: '¥160',
   meal: '¥250',
   feast: '¥480',
 };
@@ -42,8 +42,8 @@ export async function initializeIAP(): Promise<void> {
   if (!USE_REAL_IAP) return;
 
   try {
-    const IAP = await import('expo-in-app-purchases');
-    await IAP.connectAsync();
+    const RNIap = await import('react-native-iap');
+    await RNIap.initConnection();
   } catch {
     // IAP SDK 未インストールまたは初期化失敗
   }
@@ -57,7 +57,7 @@ export async function purchaseSubscription(): Promise<PurchaseResult> {
     return mockPurchase(PRODUCT_IDS.plus_monthly);
   }
 
-  return realPurchase(PRODUCT_IDS.plus_monthly);
+  return realSubscriptionPurchase(PRODUCT_IDS.plus_monthly);
 }
 
 /**
@@ -69,7 +69,7 @@ export async function purchaseItem(itemType: ItemType): Promise<PurchaseResult> 
     return mockPurchase(productId);
   }
 
-  return realPurchase(productId);
+  return realProductPurchase(productId);
 }
 
 /**
@@ -81,11 +81,10 @@ export async function checkSubscriptionStatus(): Promise<{ active: boolean; plan
   }
 
   try {
-    const IAP = await import('expo-in-app-purchases');
-    const history = await IAP.getPurchaseHistoryAsync();
-    const results = (history as any).results as Array<{ productId: string; acknowledged: boolean; transactionReceipt?: string }> | undefined;
-    const plusPurchase = results?.find(
-      (p) => p.productId === PRODUCT_IDS.plus_monthly && p.acknowledged,
+    const RNIap = await import('react-native-iap');
+    const purchases = await RNIap.getAvailablePurchases();
+    const plusPurchase = purchases.find(
+      (p) => p.productId === PRODUCT_IDS.plus_monthly,
     );
     return {
       active: Boolean(plusPurchase),
@@ -102,23 +101,38 @@ async function mockPurchase(productId: string): Promise<PurchaseResult> {
   return { success: true, productId, receipt: 'mock-receipt' };
 }
 
-async function realPurchase(productId: string): Promise<PurchaseResult> {
+async function realSubscriptionPurchase(productId: string): Promise<PurchaseResult> {
   try {
-    const IAP = await import('expo-in-app-purchases');
-    await IAP.getProductsAsync([productId]);
-    const purchaseResult = await IAP.purchaseItemAsync(productId);
-    const responseCode = (purchaseResult as any).responseCode as number;
-    const results = (purchaseResult as any).results as Array<{ transactionReceipt?: string }> | undefined;
-
-    if (responseCode === IAP.IAPResponseCode.OK) {
-      const receipt = results?.[0]?.transactionReceipt ?? '';
-      return { success: true, productId, receipt };
+    const RNIap = await import('react-native-iap');
+    await RNIap.getSubscriptions({ skus: [productId] });
+    const purchase = await RNIap.requestSubscription({ sku: productId });
+    const result = Array.isArray(purchase) ? purchase[0] : purchase;
+    if (result?.transactionReceipt) {
+      return { success: true, productId, receipt: result.purchaseToken ?? result.transactionReceipt };
     }
-    if (responseCode === IAP.IAPResponseCode.USER_CANCELED) {
+    return { success: false, reason: 'no_receipt' };
+  } catch (error: any) {
+    if (error?.code === 'E_USER_CANCELLED') {
       return { success: false, reason: 'cancelled' };
     }
-    return { success: false, reason: `purchase_failed_${responseCode}` };
-  } catch (error) {
+    return { success: false, reason: error instanceof Error ? error.message : 'unknown_error' };
+  }
+}
+
+async function realProductPurchase(productId: string): Promise<PurchaseResult> {
+  try {
+    const RNIap = await import('react-native-iap');
+    await RNIap.getProducts({ skus: [productId] });
+    const purchase = await RNIap.requestPurchase({ skus: [productId] });
+    const result = Array.isArray(purchase) ? purchase[0] : purchase;
+    if (result?.transactionReceipt) {
+      return { success: true, productId, receipt: result.purchaseToken ?? result.transactionReceipt };
+    }
+    return { success: false, reason: 'no_receipt' };
+  } catch (error: any) {
+    if (error?.code === 'E_USER_CANCELLED') {
+      return { success: false, reason: 'cancelled' };
+    }
     return { success: false, reason: error instanceof Error ? error.message : 'unknown_error' };
   }
 }
