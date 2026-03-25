@@ -68,9 +68,9 @@ export default function SettingsScreen() {
       lineHeight: 20,
     },
     inlineMeta: {
-      fontSize: 12,
-      lineHeight: 18,
-      color: palette.muted,
+      fontSize: 13,
+      lineHeight: 20,
+      color: palette.text,
     },
     plusSectionTitle: {
       fontSize: 14,
@@ -331,51 +331,6 @@ export default function SettingsScreen() {
     <ScrollView ref={scrollRef} contentContainerStyle={[styles.screenContent, { paddingBottom: 120 + insets.bottom }]} showsVerticalScrollIndicator={false}>
       <NoticeBanner notice={notice} />
       <OfflineBanner status={apiStatus} onRetry={() => void actions.retryConnection()} />
-
-      <View style={styles.panelCard}>
-        <Text style={styles.panelTitle}>現在のプラン</Text>
-        {currentPlan === 'free' ? (
-          <>
-            <View style={styles.currentPlanCard}>
-              <Text style={styles.currentPlanName}>Freeプラン</Text>
-              <Text style={styles.currentPlanDesc}>1日5回までおはなしできます</Text>
-            </View>
-            <Text style={styles.plusSectionTitle}>Plusプランの特典</Text>
-            <View style={styles.plusBenefitList}>
-              <Text style={styles.plusBenefitItem}>✓ 広告なし</Text>
-              <Text style={styles.plusBenefitItem}>✓ ペット3匹まで登録</Text>
-              <Text style={styles.plusBenefitItem}>✓ 1日50回おはなし</Text>
-            </View>
-            <Pressable
-              style={[styles.primaryButton, isPlanUpdating && styles.disabledButton]}
-              onPress={() => onUpgrade('plus')}
-              disabled={isPlanUpdating}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isPlanUpdating ? '処理中…' : 'Plus にアップグレード（480円/月）'}
-              </Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
-            <View style={styles.currentPlanCard}>
-              <Text style={styles.currentPlanName}>Plusプラン</Text>
-              <Text style={styles.currentPlanDesc}>広告なし・ペット3匹・1日50回おはなし</Text>
-            </View>
-            <Pressable
-              style={styles.managePlanButton}
-              onPress={() => {
-                const url = Platform.OS === 'ios'
-                  ? 'https://apps.apple.com/account/subscriptions'
-                  : 'https://play.google.com/store/account/subscriptions';
-                void Linking.openURL(url);
-              }}
-            >
-              <Text style={styles.managePlanButtonText}>サブスクリプションを管理</Text>
-            </Pressable>
-          </>
-        )}
-      </View>
 
       <View style={styles.panelCard}>
         <Text style={styles.panelTitle}>ペット管理</Text>

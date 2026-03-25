@@ -10,7 +10,7 @@ import type {
 } from '../types';
 import type { ThemeKey } from '../theme';
 
-export type AppTab = 'Today' | 'Talk' | 'Settings';
+export type AppTab = 'Today' | 'Talk' | 'Shop' | 'Settings';
 
 export interface AppState {
   // Auth / Transfer
@@ -39,8 +39,9 @@ export interface AppState {
   showWelcome: boolean;
   themeKey: ThemeKey;
 
-  // Plan
+  // Plan & Purchase
   isPlanUpdating: boolean;
+  isPurchasing: boolean;
 
   // Ad
   isAdLoading: boolean;
@@ -97,8 +98,9 @@ export type AppAction =
   | { type: 'SET_SHOW_WELCOME'; value: boolean }
   | { type: 'SET_THEME'; key: ThemeKey }
 
-  // Plan
+  // Plan & Purchase
   | { type: 'SET_IS_PLAN_UPDATING'; value: boolean }
+  | { type: 'SET_IS_PURCHASING'; value: boolean }
 
   // Ad
   | { type: 'SET_IS_AD_LOADING'; value: boolean }

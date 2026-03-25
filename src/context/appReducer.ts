@@ -24,6 +24,7 @@ export function createInitialState(): AppState {
     showWelcome: true,
     themeKey: 'beige',
     isPlanUpdating: false,
+    isPurchasing: false,
     isAdLoading: false,
     userStats: updateLoginStreak(undefined),
     inventory: { snack: 0, meal: 0, feast: 0 },
@@ -138,6 +139,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     // Plan
     case 'SET_IS_PLAN_UPDATING':
       return { ...state, isPlanUpdating: action.value };
+    case 'SET_IS_PURCHASING':
+      return { ...state, isPurchasing: action.value };
     case 'SET_IS_AD_LOADING':
       return { ...state, isAdLoading: action.value };
 

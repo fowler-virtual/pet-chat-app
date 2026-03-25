@@ -22,6 +22,7 @@ import MessageActionSheet from './src/components/MessageActionSheet';
 import TodayScreen from './src/screens/TodayScreen';
 import TalkScreen from './src/screens/TalkScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import ShopScreen from './src/screens/ShopScreen';
 import PetDetailScreen from './src/screens/PetDetailScreen';
 import WelcomeWizard from './src/screens/WelcomeWizard';
 
@@ -178,7 +179,7 @@ function App() {
               {() => (
                 <Tab.Navigator
                   screenListeners={({ route }) => ({
-                    focus: () => dispatch({ type: 'SET_ACTIVE_TAB', tab: route.name as 'Today' | 'Talk' | 'Settings' }),
+                    focus: () => dispatch({ type: 'SET_ACTIVE_TAB', tab: route.name as 'Today' | 'Talk' | 'Shop' | 'Settings' }),
                   })}
                   screenOptions={{
                     headerShown: false,
@@ -209,6 +210,14 @@ function App() {
                       tabBarIcon: ({ color }) => <Feather name="message-circle" size={20} color={color} />,
                       tabBarBadge: totalUnreadCount > 0 ? totalUnreadCount : undefined,
                       tabBarBadgeStyle: styles.tabBadge,
+                    }}
+                  />
+                  <Tab.Screen
+                    name="Shop"
+                    component={ShopScreen}
+                    options={{
+                      title: 'ショップ',
+                      tabBarIcon: ({ color }) => <Feather name="shopping-bag" size={20} color={color} />,
                     }}
                   />
                   <Tab.Screen

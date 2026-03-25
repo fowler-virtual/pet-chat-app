@@ -21,7 +21,7 @@ import { sendPetChatMessage } from '../lib/chatService';
 import { getTodayString, timeNow } from '../lib/dateUtils';
 import { normalizePetProfile } from '../lib/petUtils';
 import { showRewardedAd } from '../lib/adService';
-import { purchaseSubscription } from '../lib/iapService';
+import { purchaseSubscription, purchaseItem } from '../lib/iapService';
 
 function getPlatformOS(): string {
   try {
@@ -45,6 +45,7 @@ export interface AppActions {
   handleUseItem: (itemType: ItemType) => void;
   confirmUseItem: () => void;
   handleAdReward: () => Promise<void>;
+  handlePurchaseItem: (itemType: ItemType) => Promise<void>;
   restoreSubscription: () => Promise<void>;
   retryConnection: () => Promise<void>;
   retrySendMessage: () => Promise<void>;
@@ -511,6 +512,28 @@ export function createAppActions(
     }
   }
 
+  async function handlePurchaseItem(itemType: ItemType) {
+    const { isPurchasing } = getState();
+    if (isPurchasing) return;
+
+    dispatch({ type: 'SET_IS_PURCHASING', value: true });
+    try {
+      const result = await purchaseItem(itemType);
+      if (!result.success) {
+        if (result.reason === 'cancelled') return;
+        dispatch({ type: 'SET_NOTICE', notice: `購入処理に失敗しました。(${result.reason})` });
+        return;
+      }
+
+      dispatch({ type: 'ADD_INVENTORY_ITEM', itemType, amount: 5 });
+      dispatch({ type: 'SET_NOTICE', notice: `${ITEM_LABEL[itemType]}を5個手に入れました！` });
+    } catch (error) {
+      dispatch({ type: 'SET_NOTICE', notice: `購入処理に失敗しました。${error instanceof Error ? error.message : ''}` });
+    } finally {
+      dispatch({ type: 'SET_IS_PURCHASING', value: false });
+    }
+  }
+
   async function retryConnection() {
     dispatch({ type: 'SET_API_STATUS', status: 'checking' });
     try {
@@ -564,6 +587,7 @@ export function createAppActions(
     handleUseItem,
     confirmUseItem,
     handleAdReward,
+    handlePurchaseItem,
     restoreSubscription,
     retryConnection,
     retrySendMessage,
