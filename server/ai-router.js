@@ -2,6 +2,10 @@ function getTimeBucket(date = new Date()) {
   // 日本時間(JST = UTC+9)で判定する
   const jstHour = (date.getUTCHours() + 9) % 24;
 
+  if (jstHour < 5) {
+    return 'late_night';
+  }
+
   if (jstHour < 11) {
     return 'morning';
   }
@@ -10,7 +14,11 @@ function getTimeBucket(date = new Date()) {
     return 'day';
   }
 
-  return 'night';
+  if (jstHour < 22) {
+    return 'evening';
+  }
+
+  return 'late_night';
 }
 
 function choose(items) {
@@ -28,7 +36,12 @@ function getTimeLead(pet) {
     return ['今ちょうど気にしてたところ。', 'さっきからちょっと会いたかった。', '今きてくれたの、うれしい。'];
   }
 
-  return ['今日はもう来ないかと思った。', '夜に見つけてくれると安心する。', 'そろそろ声が聞きたいと思ってた。'];
+  if (bucket === 'evening') {
+    return ['今日はもう来ないかと思った。', '夜に見つけてくれると安心する。', 'そろそろ声が聞きたいと思ってた。'];
+  }
+
+  // late_night
+  return ['こんな時間まで起きてるの？', 'まだ寝てないんだね…うれしいけど。', 'こんな遅くに会えるなんてね。'];
 }
 
 function getSpeciesVoice(pet) {
@@ -118,11 +131,13 @@ function getTimeContext() {
   const bucket = getTimeBucket();
   switch (bucket) {
     case 'morning':
-      return '今は朝の時間帯。朝の挨拶、目覚めたばかりの様子、朝ごはんへの期待など、朝らしい話題を自然に含める。';
+      return '今は朝の時間帯（5時〜11時頃）。朝の挨拶、目覚めたばかりの様子、朝ごはんへの期待など、朝らしい話題を自然に含める。';
     case 'day':
-      return '今は昼間の時間帯。お昼寝、日向ぼっこ、退屈、飼い主の帰りを待つなど、日中らしい話題を自然に含める。';
-    case 'night':
-      return '今は夜の時間帯。一日の終わり、眠気、飼い主と過ごせる安心感、おやすみの気持ちなど、夜らしい話題を自然に含める。';
+      return '今は昼間の時間帯（11時〜18時頃）。お昼寝、日向ぼっこ、退屈、飼い主の帰りを待つなど、日中らしい話題を自然に含める。';
+    case 'evening':
+      return '今は夜の時間帯（18時〜22時頃）。一日の終わり、夕ごはん、飼い主と過ごせる安心感、今日あったことの振り返りなど、夜らしい話題を自然に含める。';
+    case 'late_night':
+      return '今は深夜の時間帯（22時〜翌5時頃）。眠そうな様子、おやすみの気持ち、こんな時間に来てくれた驚きと嬉しさ、静かで穏やかなトーンで話す。「おはよう」とは言わない。';
   }
 }
 
@@ -284,10 +299,15 @@ function getMockTemplates(pet, ownerCall) {
       `あ、来てくれた！${ownerCall}に会えてうれしい。`,
       `${ownerCall}！今日はどうだった？`,
     ],
-    night: [
+    evening: [
       `${ownerCall}、おかえり！今日もおつかれさま。`,
       `おかえり、${ownerCall}。ずっと待ってたんだよ。`,
       `${ownerCall}、今日も一日がんばったね。えらいえらい。`,
+    ],
+    late_night: [
+      `${ownerCall}、まだ起きてるの？…うれしいけど。`,
+      `こんな時間に来てくれたんだ。${ownerCall}、無理しないでね。`,
+      `ふぁ〜…${ownerCall}、そろそろ寝なくていいの？`,
     ],
   };
 

@@ -93,16 +93,32 @@ describe('buildSystemPrompt', () => {
 });
 
 describe('getTimeBucket', () => {
-  it('returns morning before 11', () => {
-    expect(getTimeBucket(new Date('2026-01-01T08:00:00'))).toBe('morning');
+  // テスト内の時刻は UTC。JST = UTC+9 で判定される。
+  it('returns late_night for JST 0-4', () => {
+    // UTC 15:00 = JST 0:00
+    expect(getTimeBucket(new Date('2026-01-01T15:00:00Z'))).toBe('late_night');
+    // UTC 19:00 = JST 4:00
+    expect(getTimeBucket(new Date('2026-01-01T19:00:00Z'))).toBe('late_night');
   });
 
-  it('returns day between 11 and 18', () => {
-    expect(getTimeBucket(new Date('2026-01-01T14:00:00'))).toBe('day');
+  it('returns morning for JST 5-10', () => {
+    // UTC 23:00 = JST 8:00
+    expect(getTimeBucket(new Date('2026-01-01T23:00:00Z'))).toBe('morning');
   });
 
-  it('returns night after 18', () => {
-    expect(getTimeBucket(new Date('2026-01-01T20:00:00'))).toBe('night');
+  it('returns day for JST 11-17', () => {
+    // UTC 05:00 = JST 14:00
+    expect(getTimeBucket(new Date('2026-01-01T05:00:00Z'))).toBe('day');
+  });
+
+  it('returns evening for JST 18-21', () => {
+    // UTC 11:00 = JST 20:00
+    expect(getTimeBucket(new Date('2026-01-01T11:00:00Z'))).toBe('evening');
+  });
+
+  it('returns late_night for JST 22-23', () => {
+    // UTC 14:00 = JST 23:00
+    expect(getTimeBucket(new Date('2026-01-01T14:00:00Z'))).toBe('late_night');
   });
 });
 
